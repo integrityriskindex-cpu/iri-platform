@@ -1,39 +1,37 @@
 import { iriBand } from '../utils/iri.js'
 
-// ─── Design tokens ────────────────────────────────────────────────────────────
 export const S = {
   bg:'#0a0e1a', card:'#111827', mid:'#1f2937', border:'#1e2d40',
   accent:'#f59e0b', text:'#e5e7eb', dim:'#6b7280', midText:'#9ca3af',
   danger:'#ef4444', warn:'#f97316', ok:'#22c55e', info:'#3b82f6',
+  god:'#a855f7',
 }
-
 export const card   = { background:S.card, border:`1px solid ${S.border}`, borderRadius:12, padding:20 }
 export const cardSm = { ...card, padding:14 }
-
-export const badge = (color) => ({
+export const badge  = (color) => ({
   display:'inline-block', background:color+'22', color,
-  border:`1px solid ${color}44`, borderRadius:4, padding:'2px 8px',
-  fontSize:11, fontWeight:600,
+  border:`1px solid ${color}44`, borderRadius:4, padding:'2px 8px', fontSize:11, fontWeight:600,
 })
+export const fieldStyle = {
+  width:'100%', background:S.mid, border:`1px solid ${S.border}`,
+  borderRadius:6, padding:'9px 11px', color:S.text, fontSize:13, outline:'none',
+}
 
-// ─── Button ───────────────────────────────────────────────────────────────────
 export function Btn({ children, onClick, color=S.accent, variant='fill', size='md', disabled, style={} }) {
   const pad = size==='sm'?'5px 12px':size==='lg'?'12px 24px':'8px 18px'
-  const fs  = size==='sm'?12:13
   return (
     <button onClick={onClick} disabled={disabled} style={{
       display:'inline-flex', alignItems:'center', gap:5,
       background:variant==='fill'?color:'transparent',
       color:variant==='fill'?'#000':color,
-      border:`1px solid ${color}`, borderRadius:6,
-      padding:pad, fontSize:fs, fontWeight:700,
+      border:`1px solid ${color}`, borderRadius:6, padding:pad,
+      fontSize:size==='sm'?12:13, fontWeight:700,
       cursor:disabled?'not-allowed':'pointer', opacity:disabled?.5:1,
       transition:'all .15s', ...style,
     }}>{children}</button>
   )
 }
 
-// ─── Section header ───────────────────────────────────────────────────────────
 export function SectionHeader({ title, subtitle, actions }) {
   return (
     <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20 }}>
@@ -41,15 +39,14 @@ export function SectionHeader({ title, subtitle, actions }) {
         <div style={{ color:S.text, fontSize:18, fontWeight:700 }}>{title}</div>
         {subtitle && <div style={{ color:S.dim, fontSize:12, marginTop:3 }}>{subtitle}</div>}
       </div>
-      {actions && <div style={{ display:'flex', gap:8 }}>{actions}</div>}
+      {actions && <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>{actions}</div>}
     </div>
   )
 }
 
-// ─── Stat card ────────────────────────────────────────────────────────────────
 export function StatCard({ label, value, sub, color=S.accent }) {
   return (
-    <div style={{ ...cardSm, flex:1, minWidth:130 }}>
+    <div style={{ ...cardSm, flex:1, minWidth:120 }}>
       <div style={{ color:S.dim, fontSize:11, marginBottom:4 }}>{label}</div>
       <div style={{ color, fontSize:26, fontWeight:800 }}>{value}</div>
       {sub && <div style={{ color:S.dim, fontSize:10, marginTop:2 }}>{sub}</div>}
@@ -57,7 +54,6 @@ export function StatCard({ label, value, sub, color=S.accent }) {
   )
 }
 
-// ─── IRI progress bar ─────────────────────────────────────────────────────────
 export function IRIBar({ label, value, color }) {
   return (
     <div style={{ marginBottom:9 }}>
@@ -72,7 +68,6 @@ export function IRIBar({ label, value, color }) {
   )
 }
 
-// ─── IRI Gauge SVG ────────────────────────────────────────────────────────────
 export function IRIGauge({ value, size=150 }) {
   const band=iriBand(value), r=54, cx=70, cy=70
   const toR=d=>d*Math.PI/180, sA=-210, rng=240, pct=value/100
@@ -98,14 +93,11 @@ export function IRIGauge({ value, size=150 }) {
   )
 }
 
-// ─── Tab pill ─────────────────────────────────────────────────────────────────
 export function TabPill({ id, label, active, onClick, badgeCount }) {
   return (
     <button onClick={()=>onClick(id)} style={{
-      display:'flex', alignItems:'center', gap:5,
-      padding:'7px 13px',
-      background:active?S.mid:'transparent',
-      color:active?S.accent:S.dim,
+      display:'flex', alignItems:'center', gap:5, padding:'7px 13px',
+      background:active?S.mid:'transparent', color:active?S.accent:S.dim,
       border:`1px solid ${active?S.border:'transparent'}`,
       borderRadius:7, cursor:'pointer', fontSize:13,
       fontWeight:active?700:400, whiteSpace:'nowrap', transition:'all .15s',
@@ -116,7 +108,6 @@ export function TabPill({ id, label, active, onClick, badgeCount }) {
   )
 }
 
-// ─── Field input ──────────────────────────────────────────────────────────────
 export function Field({ label, children, hint }) {
   return (
     <div>
@@ -127,7 +118,20 @@ export function Field({ label, children, hint }) {
   )
 }
 
-export const fieldStyle = {
-  width:'100%', background:S.mid, border:`1px solid ${S.border}`,
-  borderRadius:6, padding:'9px 11px', color:S.text, fontSize:13, outline:'none',
+export function Toggle({ on, onChange, label }) {
+  return (
+    <div style={{ display:'flex', alignItems:'center', gap:10, cursor:'pointer' }} onClick={()=>onChange(!on)}>
+      <div style={{ width:40, height:20, borderRadius:10, background:on?S.ok:S.mid, position:'relative', transition:'background .2s' }}>
+        <div style={{ position:'absolute', top:2, left:on?22:2, width:16, height:16, borderRadius:'50%', background:'white', transition:'left .2s' }}/>
+      </div>
+      {label && <span style={{ color:S.text, fontSize:13 }}>{label}</span>}
+    </div>
+  )
+}
+
+export function SportBadge({ sport }) {
+  const colors = { tennis:'#22c55e', nfl:'#3b82f6', cfb:'#f97316', cbb:'#8b5cf6', baseball:'#ef4444', hockey:'#06b6d4', wnba:'#ec4899', soccer_epl:'#84cc16', soccer_mls:'#eab308', golf_pga:'#f59e0b', golf_liv:'#a855f7', college_volleyball:'#f97316' }
+  const icons  = { tennis:'🎾', nfl:'🏈', cfb:'🏈', cbb:'🏀', baseball:'⚾', hockey:'🏒', wnba:'🏀', soccer_epl:'⚽', soccer_mls:'⚽', golf_pga:'⛳', golf_liv:'⛳', college_volleyball:'🏐', all:'🌐' }
+  const c = colors[sport] || S.midText
+  return <span style={{ ...badge(c), fontSize:10 }}>{icons[sport]||'🏆'} {sport?.replace(/_/g,' ').toUpperCase()}</span>
 }
