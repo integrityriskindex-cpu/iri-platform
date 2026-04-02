@@ -34,16 +34,20 @@ export function impliedProb(odds) {
 }
 
 export function computeIRI({ favoriteOdds, underdogOdds, rankingGap = 0, tier, surface, w1 = 0.5, w2 = 0.5 }) {
-  const Pw      = impliedProb(favoriteOdds)
-  const V_raw   = TIER_V[tier] ?? 0.5
-  const V       = Math.min(1, V_raw * (SURFACE_W[surface?.toLowerCase()] ?? 1.0))
-  const Y       = 0  // market-implied: assume favorite baseline
+  const Pw       = impliedProb(favoriteOdds)
+  const V_raw    = TIER_V[tier] ?? 0.5
+  const V        = Math.min(1, V_raw * (SURFACE_W[surface?.toLowerCase()] ?? 1.0))
+  const Y        = 0  // market-implied: assume favorite baseline
   const residual = Math.abs(Y - Pw)
-  const iri     = Math.min(100 * (w1 * residual + w2 * V) * 100, 100)
-  const dR100   = rankingGap / 100
-  const tb      = tier === 'itf' ? B.itf : tier === 'challenger' ? B.challenger : 0
-  const logit   = B.b0 + B.Pw * Pw + B.dR100 * dR100 + tb
+
+  // IRI = 100 × [w₁ × |Y−Pw| + w₂ × V]  — dissertation §4, exact formula
+  const iri      = Math.min(100 * (w1 * residual + w2 * V), 100)
+
+  const dR100    = rankingGap / 100
+  const tb       = tier === 'itf' ? B.itf : tier === 'challenger' ? B.challenger : 0
+  const logit    = B.b0 + B.Pw * Pw + B.dR100 * dR100 + tb
   const upsetProb = 1 / (1 + Math.exp(-logit))
+
   return { iri, Pw, V, V_raw, residual, upsetProb, oddsRatio: Math.exp(tb), dR100 }
 }
 
@@ -54,7 +58,7 @@ export function iriBand(s) {
   return              { label: 'LOW',      color: '#22c55e', bg: '#14532d' }
 }
 
-// Robustness check across 3 weighting schemes
+// Robustness check across 3 weighting schemes (dissertation §4.3)
 export function robustnessCheck(params) {
   return [[0.5, 0.5], [0.7, 0.3], [0.3, 0.7]].map(([w1, w2]) => ({
     label: `${w1}/${w2}`,
