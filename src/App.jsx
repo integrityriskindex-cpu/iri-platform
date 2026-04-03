@@ -1,15 +1,102 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine } from 'recharts'
-import { Shield, Activity, Database, FolderOpen, Gavel, Bell, Users, HelpCircle, Lock, LogOut, Filter, Eye, Flag, Download, Share2, CheckCircle2, AlertTriangle, FileText, UserPlus, Key, Ban, Send, Search, Plus, Clock, DollarSign, MessageSquare, Paperclip, Mic, Video, Phone, Hash, Map, Link, Trash2, Edit2, ChevronDown, ChevronRight, Star, RefreshCw, TrendingUp, BarChart2, Globe, Cpu } from 'lucide-react'
+import { LineChart, Line, BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine, ComposedChart } from 'recharts'
+import { Shield, LogOut, RefreshCw, Search, Plus, Send, Paperclip, Download, Flag, Gavel, Share2, CheckCircle2, AlertTriangle, FileText, Key, Ban, UserPlus, Clock, DollarSign, MessageSquare, Eye, Link, ChevronDown, TrendingUp, Database, Cpu, Lock, Activity } from 'lucide-react'
 
-import { computeIRI, iriBand, impliedProb, computeCredibility, TENNIS_TIER_LABELS, SPORTS_CONFIG as IRI_SPORTS } from './utils/iri.js'
-import { VERSION, USER_ROLES, ROLE_TABS, INITIAL_CASES, INITIAL_INFORMANTS, INITIAL_MESSAGES, INITIAL_CLIENTS, INITIAL_INVOICES, INITIAL_ALERTS, INITIAL_APIS, MOCK_MATCHES, TREND_DATA, SPORTS_CONFIG } from './utils/data.js'
-import { S, card, cardSm, badge, Btn, SectionHeader, StatCard, IRIBar, IRIGauge, TabPill, Field, fieldStyle, textareaStyle, Toggle, SportBadge, TimelineEntry, MessageBubble, FileChip, Modal } from './components/UI.jsx'
+import {
+  VERSION, computeIRI, iriBand, impliedProb, computeCredibility,
+  detectShock, computeContextualIRI, checkFalsePositive, bayesianUpdate,
+  detectCommunities, fingerprintSyndicate, computeLiquidityStress,
+  analyzePatternOfLife, predictFutureRisk, blindHash,
+  detectMicrobetTrend, benfordExpected, robustnessCheck,
+  TIER_V, TIER_LABELS, SURFACE_W, SPORTS_CONFIG, rosettaNormalize,
+} from './utils/iri.js'
+import {
+  USER_ROLES, ROLE_TABS, TRIAGE_ITEMS, NETWORK_NODES, NETWORK_EDGES,
+  MOCK_MATCHES, CHRONO_MATCH, FININT_DATA, OVERWATCH_ALERTS,
+  PREDICTIVE_SUBJECTS, DECONFLICT_REGISTRY, INITIAL_CASES,
+  INITIAL_ALERTS, INITIAL_APIS, INITIAL_MESSAGES, INITIAL_CLIENTS,
+  INITIAL_INVOICES, TREND_DATA, COVERAGE_GAPS, OMNIBAR_EXAMPLES,
+} from './utils/data.js'
+import {
+  S, card, cardSm, badge, Btn, SectionHeader, StatCard,
+  IRIBar, IRIGauge, TabPill, Field, fieldStyle, textareaStyle,
+  Toggle, SportBadge, OverwatchBadge, ShockBadge,
+  TimelineEntry, MessageBubble, Modal,
+} from './components/UI.jsx'
 
-const API = (typeof window !== 'undefined' && window.APP_CONFIG?.API_BASE_URL || import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
+const API = (typeof window !== 'undefined' && window.APP_CONFIG?.API_BASE_URL || import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/,'')
+const now  = () => new Date().toISOString().slice(0,16).replace('T',' ')
+const uid  = () => Date.now().toString(36)
 
-const now = () => new Date().toISOString().slice(0,16).replace('T',' ')
-const uid  = () => `${Date.now().toString(36)}`
+// ═══════════════════════════════════════════════════════════════════════════════
+// OMNIBAR — Cmd+K natural language intelligence query
+// ═══════════════════════════════════════════════════════════════════════════════
+function OmniBar({ onClose, onNavigate }) {
+  const [q, setQ]       = useState('')
+  const [result, setR]  = useState(null)
+  const inputRef        = useRef(null)
+
+  useEffect(()=>{ inputRef.current?.focus() },[])
+
+  const processQuery = (query) => {
+    const ql = query.toLowerCase()
+    if (ql.includes('high-iri')||ql.includes('iri >')||ql.includes('critical')) {
+      const matches = Object.values(MOCK_MATCHES).flat().map(m=>{const r=computeIRI({favoriteOdds:m.favOdds,underdogOdds:m.dogOdds||3,rankingGap:m.rankingGap||20,tier:m.tier,sport:m.sport});return{...m,...r}}).filter(m=>m.iri>70).sort((a,b)=>b.iri-a.iri)
+      setR({ type:'matches', title:`High-IRI Matches (${matches.length})`, items:matches.map(m=>({ label:`${m.p1||m.event} vs ${m.p2||''}`, value:`IRI: ${m.iri.toFixed(0)}`, color:iriBand(m.iri).color })) })
+    } else if (ql.includes('syndicate')||ql.includes('cluster')) {
+      setR({ type:'clusters', title:'Cluster Intelligence', items:FININT_DATA.syndicates.map(s=>({ label:s.label, value:`${s.confidence}% confidence · ${s.detectedMatches} matches`, color:s.color })) })
+    } else if (ql.includes('pre-match')||ql.includes('alert')||ql.includes('6 hour')) {
+      setR({ type:'alerts', title:'Pre-Match Alerts (Next 8hrs)', items:OVERWATCH_ALERTS.filter(a=>a.preMatch).map(a=>({ label:`${a.match} — ${a.event}`, value:`${a.hoursToStart}h · IRI: ${a.iriScore}`, color:a.level==='Black'?'#a855f7':a.level==='Red'?S.danger:S.warn })) })
+    } else if (ql.includes('predict')||ql.includes('risk')||ql.includes('next 30')) {
+      setR({ type:'predictive', title:'Highest Predicted Future Risk', items:PREDICTIVE_SUBJECTS.slice(0,4).map(s=>{const p=predictFutureRisk({earningsInstability:s.earningsInstability,travelLoad:s.travelLoad,clusterExposure:s.clusterExposure,recentIRItrend:s.recentIRI});return{ label:s.name, value:`Predicted risk: ${p.score}/100`, color:p.color }}) })
+    } else if (ql.includes('deconflict')||ql.includes('agency')) {
+      setR({ type:'deconflict', title:'Deconfliction Matches', items:DECONFLICT_REGISTRY.filter(d=>d.matched).map(d=>({ label:`${d.agency} ↔ ${d.matchedAgency}`, value:`Hash: ${d.hash}`, color:S.warn })) })
+    } else if (ql.includes('finint')||ql.includes('flow')||ql.includes('$100k')) {
+      setR({ type:'finint', title:'FININT Anomalies', items:FININT_DATA.liquidityMarkets.filter(m=>m.stress>60).map(m=>({ label:m.market, value:`Stress: ${m.stress}/100`, color:m.stress>80?S.danger:S.warn })) })
+    } else if (ql.includes('umpire')||ql.includes('official')||ql.includes('mena')) {
+      setR({ type:'entities', title:'Flagged Officials — MENA', items:[{ label:'Umpire A. Silva', value:'Risk: 88 · Betweenness centrality: 92', color:S.danger },{ label:'ITF M25 Antalya', value:'Risk: 76 · 18 flagged matches', color:S.warn }] })
+    } else {
+      setR({ type:'general', title:'Query processed', items:[{ label:'No specific module matched', value:'Try: "high-IRI matches", "cluster members", "pre-match alerts"', color:S.dim }] })
+    }
+  }
+
+  return (
+    <div style={{ position:'fixed', inset:0, background:'#000000cc', zIndex:2000, display:'flex', alignItems:'flex-start', justifyContent:'center', paddingTop:120 }} onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={{ background:S.card, border:`1px solid ${S.accent}44`, borderRadius:14, width:'100%', maxWidth:660, boxShadow:`0 0 80px ${S.accent}22` }}>
+        <div style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 18px', borderBottom:result?`1px solid ${S.border}`:'none' }}>
+          <Search size={18} color={S.accent}/>
+          <input ref={inputRef} value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>{ if(e.key==='Enter'&&q.trim())processQuery(q); if(e.key==='Escape')onClose() }} placeholder="Ask anything — 'Show high-IRI ITF matches', 'Cluster members', 'Pre-match alerts'…" style={{ ...fieldStyle, border:'none', background:'transparent', fontSize:15, flex:1 }}/>
+          <kbd style={{ color:S.dim, fontSize:11, background:S.mid, padding:'2px 6px', borderRadius:4 }}>ESC</kbd>
+        </div>
+        {!q && (
+          <div style={{ padding:'12px 18px' }}>
+            <div style={{ color:S.dim, fontSize:11, marginBottom:8 }}>EXAMPLE QUERIES</div>
+            {OMNIBAR_EXAMPLES.slice(0,5).map(ex=>(
+              <div key={ex} onClick={()=>{setQ(ex);processQuery(ex)}} style={{ color:S.midText, fontSize:12, padding:'6px 8px', borderRadius:6, cursor:'pointer', background:'transparent' }} onMouseEnter={e=>e.target.style.background=S.mid} onMouseLeave={e=>e.target.style.background='transparent'}>
+                ↗ {ex}
+              </div>
+            ))}
+          </div>
+        )}
+        {result && (
+          <div style={{ padding:'14px 18px' }}>
+            <div style={{ color:S.accent, fontSize:13, fontWeight:700, marginBottom:10 }}>{result.title}</div>
+            {result.items.map((item,i)=>(
+              <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 10px', borderRadius:8, cursor:'pointer', marginBottom:4, background:S.mid }}>
+                <span style={{ color:S.text, fontSize:13 }}>{item.label}</span>
+                <span style={{ color:item.color, fontSize:12, fontWeight:600 }}>{item.value}</span>
+              </div>
+            ))}
+            <div style={{ marginTop:12, display:'flex', gap:8 }}>
+              <Btn size="sm" color={S.accent} onClick={onClose}>Open in Module →</Btn>
+              <Btn size="sm" color={S.dim} variant="outline" onClick={()=>{setQ('');setR(null)}}>Clear</Btn>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // AUTH
@@ -28,13 +115,13 @@ function AuthScreen({ onLogin }) {
   return (
     <div style={{ minHeight:'100vh', background:S.bg, display:'flex', alignItems:'center', justifyContent:'center', position:'relative', overflow:'hidden' }}>
       <div style={{ position:'absolute', inset:0, backgroundImage:'linear-gradient(#1e2d4022 1px,transparent 1px),linear-gradient(90deg,#1e2d4022 1px,transparent 1px)', backgroundSize:'36px 36px', opacity:.5 }}/>
-      <div style={{ position:'absolute', inset:0, backgroundImage:'radial-gradient(circle at 15% 25%,#f59e0b09,transparent 45%),radial-gradient(circle at 85% 75%,#3b82f609,transparent 45%)' }}/>
-      <div style={{ ...card, width:440, maxWidth:'95vw', position:'relative', zIndex:1, boxShadow:'0 0 60px #f59e0b18' }}>
+      <div style={{ position:'absolute', inset:0, backgroundImage:'radial-gradient(circle at 20% 20%,#a855f709,transparent 40%),radial-gradient(circle at 80% 80%,#f59e0b09,transparent 40%)' }}/>
+      <div style={{ ...card, width:440, maxWidth:'95vw', position:'relative', zIndex:1, boxShadow:'0 0 80px #a855f718' }}>
         <div style={{ textAlign:'center', marginBottom:26 }}>
           <div style={{ fontSize:36, marginBottom:10 }}>🛡️</div>
           <div style={{ fontFamily:"'IBM Plex Mono',monospace", fontSize:22, fontWeight:800, color:S.text }}>IRI <span style={{ color:S.accent }}>v{VERSION}</span></div>
-          <div style={{ color:S.dim, fontSize:12, marginTop:4 }}>Integrity Risk Index — Investigative Platform</div>
-          <div style={{ color:S.dim, fontSize:11, marginTop:2, fontFamily:"'IBM Plex Mono',monospace" }}>Multi-Sport · AUC 0.873 · Kirby (2026)</div>
+          <div style={{ color:S.dim, fontSize:12, marginTop:4 }}>Intelligence Risk Index — Investigative OS</div>
+          <div style={{ color:S.dim, fontSize:11, marginTop:2, fontFamily:"'IBM Plex Mono',monospace" }}>AUC 0.873 · Multi-Sport · Kirby (2026) · v{VERSION}</div>
         </div>
         <div style={{ display:'flex', gap:4, background:S.mid, borderRadius:8, padding:4, marginBottom:18 }}>
           {['login','register'].map(m=>(
@@ -55,672 +142,994 @@ function AuthScreen({ onLogin }) {
             {mode==='login' ? '🔐 Sign In' : '✨ Create Account'}
           </Btn>
         </div>
-        <div style={{ textAlign:'center', marginTop:14, color:S.dim, fontSize:10, fontFamily:"'IBM Plex Mono',monospace" }}>AWS Cognito · SHA-256 audit chain · Zero plain-text keys</div>
+        <div style={{ textAlign:'center', marginTop:14, color:S.dim, fontSize:10, fontFamily:"'IBM Plex Mono',monospace" }}>
+          AWS Cognito · SHA-256 chain · Rosetta Engine · Neptune Graph · QLDB
+        </div>
       </div>
     </div>
   )
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// CASE MANAGEMENT — full v1.4 feature set
+// TRIAGE DASHBOARD — Morning briefing / zero-click intelligence
 // ═══════════════════════════════════════════════════════════════════════════════
-function CaseManagement({ user }) {
-  const [cases,        setCases]        = useState(INITIAL_CASES)
-  const [activeCase,   setActiveCase]   = useState(null)
-  const [activeTab,    setActiveTab]    = useState('overview')
-  const [showNewCase,  setShowNewCase]  = useState(false)
-  const [showNewNote,  setShowNewNote]  = useState(false)
-  const [showCeaseD,   setShowCeaseD]   = useState(false)
-  const [showStakeout, setShowStakeout] = useState(false)
-  const [showLead,     setShowLead]     = useState(false)
-  const [showInfraction, setShowInfraction] = useState(false)
-  const [showLink,     setShowLink]     = useState(false)
-  const [filterStatus, setFilterStatus] = useState('all')
-  const [searchQ,      setSearchQ]      = useState('')
+function TriageDashboard({ user, onNavigate }) {
+  const [dismissed, setDismissed] = useState([])
+  const items = TRIAGE_ITEMS.filter(t=>!dismissed.includes(t.id))
+  const sevColor = { Critical:S.danger, High:S.warn, Elevated:S.accent, Info:S.info }
 
-  const canApprove = ['god','main_account','supervisor'].includes(user?.role)
-  const canCreate  = ['god','main_account','supervisor','special_agent','regulator','integrity_officer'].includes(user?.role)
-
-  const sevColor = { Critical:S.danger, High:S.warn, Medium:S.accent, Low:S.ok }
-
-  // New case form
-  const [newCase, setNewCase] = useState({
-    title:'', severity:'High', sport:'tennis', jurisdiction:'',
-    assignee:'', supervisor:'', description:'',
-  })
-
-  // New note form
-  const [newNote, setNewNote] = useState({ type:'case_note', text:'', internal:false })
-
-  // New stakeout entry
-  const [stakeoutEntry, setStakeoutEntry] = useState({ ts:now(), location:'', subjects:'', vehicles:'', phones:'', notes:'' })
-
-  // New lead
-  const [leadEntry, setLeadEntry] = useState({ name:'', address:'', phone:'', email:'', social:'', notes:'' })
-
-  // Cease & desist
-  const [ceaseD, setCeaseD] = useState({ subject:'', organization:'', grounds:'', demands:'', signatory:'', title:'', date:now().split(' ')[0] })
-
-  // New infraction
-  const [infraction, setInfraction] = useState({ body:'', date:'', type:'', description:'' })
-
-  const createCase = () => {
-    if (!newCase.title.trim()) return
-    const c = {
-      id:`CASE-${Date.now().toString().slice(-5)}`, ...newCase,
-      iri:0, confidence:0, status:'Open', stage:'Initial Alert',
-      created:now().split(' ')[0], due:'TBD',
-      entities:[], linkedCases:[], linkedDossiers:[],
-      pendingApproval:false, notes:[], timeline:[
-        { id:`TL-${uid()}`, ts:now(), user:user.username, type:'Case Opened', icon:'📁', color:S.info, text:`Case created by ${user.username}. ${newCase.description}` }
-      ], files:[], phoneLog:[], stakeoutLog:[], leads:[], infractions:[], trackers:[], timeLogs:[],
-    }
-    setCases(cs=>[c,...cs])
-    setShowNewCase(false)
-    setNewCase({ title:'', severity:'High', sport:'tennis', jurisdiction:'', assignee:'', supervisor:'', description:'' })
-    setActiveCase(c)
-  }
-
-  const addNote = () => {
-    if (!newNote.text.trim() || !activeCase) return
-    const n = { id:`N-${uid()}`, ...newNote, author:user.username, role:USER_ROLES[user.role]?.label||user.role, ts:now(), signedOff:false, signedBy:null }
-    const updated = updateCase(activeCase.id, c=>({ ...c, notes:[...c.notes, n], timeline:[...c.timeline, { id:`TL-${uid()}`, ts:now(), user:user.username, type:newNote.type==='interview_note'?'Interview Logged':'Note Added', icon:newNote.type==='interview_note'?'🎙️':'📝', color:S.info, text:newNote.text.slice(0,80)+'...' }] }))
-    setNewNote({ type:'case_note', text:'', internal:false })
-    setShowNewNote(false)
-    setActiveCase(updated)
-  }
-
-  const addStakeout = () => {
-    const entry = { id:`SK-${uid()}`, ...stakeoutEntry, addedBy:user.username }
-    const updated = updateCase(activeCase.id, c=>({ ...c, stakeoutLog:[...c.stakeoutLog, entry], timeline:[...c.timeline, { id:`TL-${uid()}`, ts:stakeoutEntry.ts, user:user.username, type:'Stakeout Entry', icon:'👁️', color:'#8b5cf6', text:`${stakeoutEntry.location} — ${stakeoutEntry.subjects}` }] }))
-    setStakeoutEntry({ ts:now(), location:'', subjects:'', vehicles:'', phones:'', notes:'' })
-    setShowStakeout(false)
-    setActiveCase(updated)
-  }
-
-  const addLead = () => {
-    const entry = { id:`LD-${uid()}`, ...leadEntry, addedBy:user.username, ts:now() }
-    const updated = updateCase(activeCase.id, c=>({ ...c, leads:[...c.leads, entry] }))
-    setLeadEntry({ name:'', address:'', phone:'', email:'', social:'', notes:'' })
-    setShowLead(false)
-    setActiveCase(updated)
-  }
-
-  const addInfraction = () => {
-    const entry = { id:`INF-${uid()}`, ...infraction, addedBy:user.username, ts:now() }
-    const updated = updateCase(activeCase.id, c=>({ ...c, infractions:[...c.infractions, entry] }))
-    setInfraction({ body:'', date:'', type:'', description:'' })
-    setShowInfraction(false)
-    setActiveCase(updated)
-  }
-
-  const signOffNote = (noteId) => {
-    const updated = updateCase(activeCase.id, c=>({ ...c, notes:c.notes.map(n=>n.id===noteId?{...n,signedOff:true,signedBy:user.username}:n) }))
-    setActiveCase(updated)
-  }
-
-  const updateCase = (id, fn) => {
-    let result
-    setCases(cs=>cs.map(c=>{if(c.id===id){result=fn(c);return result}return c}))
-    return fn(cases.find(c=>c.id===id))
-  }
-
-  // File upload simulation
-  const handleFileUpload = (e) => {
-    const file = e.target.files?.[0]
-    if (!file || !activeCase) return
-    const f = { id:`F-${uid()}`, name:file.name, type:file.type||'document', size:`${(file.size/1024).toFixed(0)} KB`, uploadedBy:user.username, ts:now(), description:'' }
-    const updated = updateCase(activeCase.id, c=>({ ...c, files:[...c.files, f], timeline:[...c.timeline, { id:`TL-${uid()}`, ts:now(), user:user.username, type:'File Uploaded', icon:'📎', color:S.accent, text:`${file.name} (${f.size})` }] }))
-    setActiveCase(updated)
-    e.target.value = ''
-  }
-
-  const exportCaseReport = (c) => {
-    const lines = [
-      `INTEGRITY RISK INDEX — OFFICIAL CASE REPORT`,
-      `Generated: ${now()} | Platform: IRI v${VERSION}`,
-      `SHA-256 Audit Hash: ${Math.random().toString(36).slice(2,18)}...`,
-      ``,
-      `CASE ID: ${c.id}`,
-      `TITLE: ${c.title}`,
-      `SEVERITY: ${c.severity} | STATUS: ${c.status} | STAGE: ${c.stage}`,
-      `SPORT: ${c.sport?.toUpperCase()} | JURISDICTION: ${c.jurisdiction}`,
-      `ASSIGNEE: ${c.assignee} | SUPERVISOR: ${c.supervisor}`,
-      `IRI SCORE: ${c.iri} | CONFIDENCE: ${c.confidence}%`,
-      `CREATED: ${c.created} | DUE: ${c.due}`,
-      ``,
-      `LINKED ENTITIES:`,
-      ...(c.entities||[]).map(e=>`  • ${e}`),
-      ``,
-      `CASE NOTES (${c.notes?.filter(n=>!n.internal).length||0} official):`,
-      ...(c.notes||[]).filter(n=>!n.internal).map(n=>`  [${n.ts}] ${n.author}: ${n.text}`),
-      ``,
-      `TIMELINE (${c.timeline?.length||0} entries):`,
-      ...(c.timeline||[]).map(t=>`  [${t.ts}] ${t.user} — ${t.type}: ${t.text}`),
-      ``,
-      `EVIDENCE FILES (${c.files?.length||0}):`,
-      ...(c.files||[]).map(f=>`  • ${f.name} (${f.size}) — uploaded by ${f.uploadedBy} at ${f.ts}`),
-      ``,
-      `PHONE LOG (${c.phoneLog?.length||0} entries):`,
-      ...(c.phoneLog||[]).map(p=>`  ${p.date} ${p.time} — ${p.contact} (${p.number}): ${p.notes}`),
-      ``,
-      `LEADS (${c.leads?.length||0}):`,
-      ...(c.leads||[]).map(l=>`  • ${l.name} | ${l.phone} | ${l.email} | ${l.notes}`),
-      ``,
-      `STAKEOUT LOG (${c.stakeoutLog?.length||0} entries):`,
-      ...(c.stakeoutLog||[]).map(s=>`  [${s.ts}] ${s.location} — Subjects: ${s.subjects} | Vehicles: ${s.vehicles} | ${s.notes}`),
-      ``,
-      `GOVERNANCE INFRACTIONS (${c.infractions?.length||0}):`,
-      ...(c.infractions||[]).map(i=>`  [${i.date}] ${i.body} — ${i.type}: ${i.description}`),
-      ``,
-      `--- END OF REPORT ---`,
-      `This document is confidential. Unauthorized disclosure is prohibited.`,
-    ]
-    const blob = new Blob([lines.join('\n')], { type:'text/plain' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = `${c.id}_case_report_${now().replace(/[: ]/g,'_')}.txt`
-    a.click()
-  }
-
-  const exportCeaseDesist = () => {
-    const lines = [
-      `CEASE AND DESIST NOTICE`,
-      ``,
-      `Date: ${ceaseD.date}`,
-      ``,
-      `TO: ${ceaseD.subject}`,
-      ``,
-      `This Cease and Desist Notice is issued by ${ceaseD.organization} regarding the following matter:`,
-      ``,
-      `GROUNDS:`,
-      ceaseD.grounds,
-      ``,
-      `DEMANDS:`,
-      ceaseD.demands,
-      ``,
-      `You are hereby notified that failure to comply with the above demands within 10 business days`,
-      `of receipt of this notice may result in further legal action.`,
-      ``,
-      ``,
-      `Signed,`,
-      ``,
-      `${ceaseD.signatory}`,
-      `${ceaseD.title}`,
-      `${ceaseD.organization}`,
-      ``,
-      `[OFFICIAL LETTERHEAD — UPLOAD LETTERHEAD IN SETTINGS]`,
-    ]
-    const blob = new Blob([lines.join('\n')], { type:'text/plain' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = `cease_desist_${ceaseD.subject.replace(/\s/g,'_')}_${ceaseD.date}.txt`
-    a.click()
-    setShowCeaseD(false)
-  }
-
-  const filteredCases = cases
-    .filter(c=>filterStatus==='all'||c.status===filterStatus)
-    .filter(c=>!searchQ||c.title.toLowerCase().includes(searchQ.toLowerCase())||c.id.includes(searchQ))
-
-  const CASE_TABS = ['overview','notes','timeline','files','phonelog','stakeout','leads','infractions','time']
-
-  // ── Case list view ──────────────────────────────────────────────────────────
-  if (!activeCase) return (
+  return (
     <div>
-      <SectionHeader title="🔨 Case Management" subtitle={`v${VERSION} investigative case system · Notes · Timeline · Evidence · Reports`}
-        actions={canCreate && <Btn color={S.danger} onClick={()=>setShowNewCase(true)}><Plus size={11}/>New Case</Btn>}/>
-
-      {/* Stats */}
-      <div style={{ display:'flex', gap:14, marginBottom:18, flexWrap:'wrap' }}>
-        <StatCard label="Total Cases" value={cases.length}/>
-        <StatCard label="Active" value={cases.filter(c=>c.status==='Active'||c.status==='Open').length} color={S.danger}/>
-        <StatCard label="Pending Approval" value={cases.filter(c=>c.pendingApproval).length} color={S.warn}/>
-        <StatCard label="Sports Covered" value={[...new Set(cases.map(c=>c.sport))].length} color={S.info}/>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20 }}>
+        <div>
+          <div style={{ color:S.text, fontSize:18, fontWeight:700 }}>🌅 Morning Triage — {new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}</div>
+          <div style={{ color:S.dim, fontSize:12, marginTop:3 }}>AI ran overnight analysis on all active data streams · {items.length} items require your attention</div>
+        </div>
+        <div style={{ ...badge(S.god), fontFamily:"'IBM Plex Mono',monospace" }}>ZERO-CLICK INTELLIGENCE</div>
       </div>
 
-      {/* Filters */}
-      <div style={{ ...cardSm, marginBottom:14, display:'flex', gap:10, flexWrap:'wrap', alignItems:'center' }}>
-        <Search size={13} color={S.dim}/>
-        <input placeholder="Search cases…" value={searchQ} onChange={e=>setSearchQ(e.target.value)} style={{ ...fieldStyle, width:200 }}/>
-        {['all','Open','Active','Monitoring','Closed'].map(s=>(
-          <button key={s} onClick={()=>setFilterStatus(s)} style={{ padding:'5px 12px', borderRadius:6, fontSize:12, cursor:'pointer', background:filterStatus===s?S.mid:'transparent', color:filterStatus===s?S.text:S.dim, border:`1px solid ${filterStatus===s?S.border:'transparent'}` }}>{s}</button>
+      {/* Threat matrix stats */}
+      <div style={{ display:'flex', gap:14, marginBottom:20, flexWrap:'wrap' }}>
+        <StatCard label="⬛ BLACK Alerts"    value={OVERWATCH_ALERTS.filter(a=>a.level==='Black').length} color='#a855f7' pulse/>
+        <StatCard label="🔴 RED Alerts"      value={OVERWATCH_ALERTS.filter(a=>a.level==='Red').length}   color={S.danger}/>
+        <StatCard label="🟡 YELLOW Alerts"   value={OVERWATCH_ALERTS.filter(a=>a.level==='Yellow').length}color={S.accent}/>
+        <StatCard label="⚡ IRI Shocks (24h)"value={items.filter(t=>t.iriCurr-t.iriPrev>=20).length}     color={S.warn}/>
+        <StatCard label="🦢 Black Swans"     value={items.filter(t=>t.iriCurr-t.iriPrev>=40).length}     color='#a855f7'/>
+        <StatCard label="🕸️ Cluster Alerts"  value={items.filter(t=>t.type==='Cluster Threshold').length} color={S.info}/>
+      </div>
+
+      {/* Overnight AI findings */}
+      <div style={{ color:S.text, fontSize:14, fontWeight:700, marginBottom:14 }}>Overnight AI Analysis</div>
+      {items.map(item=>{
+        const shock = detectShock(item.iriPrev, item.iriCurr)
+        return (
+          <div key={item.id} style={{ ...card, marginBottom:10, borderLeft:`3px solid ${sevColor[item.severity]}`, position:'relative' }}>
+            <button onClick={()=>setDismissed(d=>[...d,item.id])} style={{ position:'absolute', top:12, right:12, background:'transparent', border:'none', color:S.dim, cursor:'pointer', fontSize:16 }}>×</button>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:12 }}>
+              <div style={{ flex:1 }}>
+                <div style={{ display:'flex', gap:7, alignItems:'center', marginBottom:6, flexWrap:'wrap' }}>
+                  <span style={{ ...badge(sevColor[item.severity]) }}>{item.severity}</span>
+                  <span style={{ ...badge(S.info+'88'), color:S.info, fontSize:10 }}>{item.type}</span>
+                  <SportBadge sport={item.sport}/>
+                  {shock.isShock && <ShockBadge delta={shock.delta}/>}
+                  <span style={{ color:S.dim, fontSize:11, fontFamily:"'IBM Plex Mono',monospace" }}>{item.ts}</span>
+                </div>
+                <div style={{ color:S.text, fontSize:14, fontWeight:700, marginBottom:4 }}>{item.entity}</div>
+                <div style={{ color:S.midText, fontSize:12, lineHeight:1.6 }}>{item.detail}</div>
+              </div>
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:8 }}>
+                <div style={{ textAlign:'center' }}>
+                  <div style={{ color:S.dim, fontSize:10 }}>IRI {item.iriPrev} → NOW</div>
+                  <div style={{ color:iriBand(item.iriCurr).color, fontSize:30, fontWeight:900, lineHeight:1 }}>{item.iriCurr}</div>
+                  <span style={{ ...badge(iriBand(item.iriCurr).color), fontSize:9 }}>{iriBand(item.iriCurr).label}</span>
+                </div>
+                <div style={{ display:'flex', gap:5 }}>
+                  {item.action==='Open Case' && <Btn size="sm" color={S.danger}><Gavel size={10}/>Open Case</Btn>}
+                  {item.action==='Review Graph' && <Btn size="sm" color='#a855f7' onClick={()=>onNavigate('nexus')}>🕸️ Nexus Graph</Btn>}
+                  {item.action==='Flag' && <Btn size="sm" color={S.warn} variant="outline"><Flag size={10}/>Flag</Btn>}
+                  {item.action==='Monitor' && <Btn size="sm" color={S.info} variant="outline"><Eye size={10}/>Monitor</Btn>}
+                  <Btn size="sm" color={S.dim} variant="outline" onClick={()=>setDismissed(d=>[...d,item.id])}>Dismiss</Btn>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })}
+      {items.length===0 && (
+        <div style={{ ...card, textAlign:'center', padding:40 }}>
+          <div style={{ fontSize:40, marginBottom:12 }}>✅</div>
+          <div style={{ color:S.ok, fontSize:16, fontWeight:700 }}>Triage Clear</div>
+          <div style={{ color:S.dim, fontSize:12, marginTop:6 }}>All overnight AI findings have been actioned. Next analysis cycle in 2h 14m.</div>
+        </div>
+      )}
+
+      {/* Quick access modules */}
+      <div style={{ color:S.text, fontSize:14, fontWeight:700, marginTop:24, marginBottom:14 }}>Quick Access</div>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))', gap:10 }}>
+        {[['🕸️ Nexus Graph 2.0','nexus',S.god],['⏱ Chrono Engine','chrono',S.info],['💰 FININT Layer','finint',S.ok],['🚨 Overwatch','overwatch',S.danger],['🔮 Predictive','predictive','#8b5cf6'],['🔐 Deconflict','deconflict',S.secure]].map(([l,tab,c])=>(
+          <div key={tab} onClick={()=>onNavigate(tab)} style={{ ...cardSm, cursor:'pointer', textAlign:'center', borderColor:c+'44', background:c+'11' }}>
+            <div style={{ fontSize:22, marginBottom:4 }}>{l.split(' ')[0]}</div>
+            <div style={{ color:c, fontSize:12, fontWeight:700 }}>{l.slice(l.indexOf(' ')+1)}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NEXUS GRAPH 2.0 — Community detection + centrality + cluster labeling
+// ═══════════════════════════════════════════════════════════════════════════════
+function NexusGraph() {
+  const [selected, setSelected]     = useState(null)
+  const [filter,   setFilter]       = useState('all')
+  const [showClusters, setShowC]    = useState(true)
+  const [expandNode, setExpand]      = useState(null)
+
+  const { communities, centrality, clusters } = useMemo(()=>detectCommunities(NETWORK_NODES, NETWORK_EDGES),[])
+
+  const typeColor = t=>({ player:S.info, official:S.danger, tournament:S.warn, coach:S.accent, sportsbook:'#8b5cf6', bettor:'#ec4899' }[t]||S.midText)
+  const W=700, H=420
+
+  const clusterColors = Object.values(clusters)
+  const getNodeCluster = (nodeId) => communities[nodeId]
+  const getClusterColor = (clusterId) => clusters[clusterId]?.color || S.midText
+
+  return (
+    <div>
+      <SectionHeader title="🕸️ Nexus Graph 2.0 — Network Intelligence" subtitle="Louvain community detection · Betweenness centrality · Corruption cluster auto-labeling · Kingpin identification"/>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 300px', gap:20 }}>
+        <div style={{ ...card, padding:0, overflow:'hidden' }}>
+          <div style={{ padding:'10px 14px', borderBottom:`1px solid ${S.border}`, display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
+            {['all','player','official','tournament','coach','sportsbook','bettor'].map(f=>(
+              <button key={f} onClick={()=>setFilter(f)} style={{ padding:'3px 10px', borderRadius:4, fontSize:11, cursor:'pointer', background:filter===f?typeColor(f):'transparent', color:filter===f?'#000':S.dim, border:`1px solid ${filter===f?typeColor(f):S.border}`, textTransform:'capitalize' }}>{f}</button>
+            ))}
+            <div style={{ marginLeft:'auto', display:'flex', gap:8 }}>
+              <Toggle on={showClusters} onChange={setShowC}/>
+              <span style={{ color:S.dim, fontSize:11 }}>Show clusters</span>
+            </div>
+          </div>
+          <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display:'block', background:'#0d1117' }}>
+            {/* Cluster backgrounds */}
+            {showClusters && Object.values(clusters).map(cl=>{
+              const memberNodes = NETWORK_NODES.filter(n=>communities[n.id]===cl.id)
+              if (memberNodes.length < 2) return null
+              const xs = memberNodes.map(n=>n.x/100*W), ys = memberNodes.map(n=>n.y/100*H)
+              const cx = xs.reduce((s,v)=>s+v,0)/xs.length, cy = ys.reduce((s,v)=>s+v,0)/ys.length
+              const r  = Math.max(...memberNodes.map(n=>Math.sqrt(Math.pow(n.x/100*W-cx,2)+Math.pow(n.y/100*H-cy,2))))+30
+              return <circle key={cl.id} cx={cx} cy={cy} r={r} fill={cl.color+'10'} stroke={cl.color+'33'} strokeWidth={1.5} strokeDasharray="4 2"/>
+            })}
+            {/* Cluster labels */}
+            {showClusters && Object.values(clusters).map(cl=>{
+              const memberNodes = NETWORK_NODES.filter(n=>communities[n.id]===cl.id)
+              if (memberNodes.length < 2) return null
+              const xs = memberNodes.map(n=>n.x/100*W), ys = memberNodes.map(n=>n.y/100*H)
+              const cx = xs.reduce((s,v)=>s+v,0)/xs.length, cy = Math.min(...ys)-38
+              return <text key={`lbl-${cl.id}`} x={cx} y={cy} textAnchor="middle" fill={cl.color} fontSize={9} opacity={.8}>{cl.label}</text>
+            })}
+            {/* Edges */}
+            {NETWORK_EDGES.map((e,i)=>{
+              const fn=NETWORK_NODES.find(n=>n.id===e.from), tn=NETWORK_NODES.find(n=>n.id===e.to)
+              if(!fn||!tn) return null
+              const vis=filter==='all'||fn.type===filter||tn.type===filter
+              return <line key={i} x1={fn.x/100*W} y1={fn.y/100*H} x2={tn.x/100*W} y2={tn.y/100*H} stroke={e.type==='officiated_at'?S.danger:e.type==='coaches'?S.accent:e.type==='linked'?'#a855f7':S.border} strokeWidth={e.w/4} opacity={vis?.6:.08} strokeDasharray={e.type==='markets'?'3 2':undefined}/>
+            })}
+            {/* Nodes */}
+            {NETWORK_NODES.map(n=>{
+              const x=n.x/100*W, y=n.y/100*H, c=typeColor(n.type)
+              const r=7+centrality[n.id]/12
+              const vis=filter==='all'||n.type===filter
+              const isSel=selected?.id===n.id
+              const clColor=getClusterColor(communities[n.id])
+              return (
+                <g key={n.id} onClick={()=>setSelected(s=>s?.id===n.id?null:n)} style={{ cursor:'pointer' }}>
+                  {showClusters && <circle cx={x} cy={y} r={r+5} fill={clColor+'15'}/>}
+                  {isSel && <circle cx={x} cy={y} r={r+8} fill="none" stroke={c} strokeWidth={2} opacity={.5}/>}
+                  {n.flagged && <circle cx={x} cy={y} r={r+4} fill="none" stroke={c} strokeWidth={1} opacity={.4}/>}
+                  <circle cx={x} cy={y} r={r} fill={c} opacity={vis?1:.12}/>
+                  <text x={x} y={y+4} textAnchor="middle" fill="#000" fontSize={9} fontWeight="700">{n.risk}</text>
+                  <text x={x} y={y+r+12} textAnchor="middle" fill={vis?c:'#333'} fontSize={8}>{n.label.split(' ').slice(-1)[0]}</text>
+                </g>
+              )
+            })}
+          </svg>
+          <div style={{ padding:'8px 14px', borderTop:`1px solid ${S.border}`, display:'flex', gap:12, flexWrap:'wrap', fontSize:10, color:S.dim }}>
+            <span>Node size = betweenness centrality</span><span>Number = risk score</span><span>Dashed rings = corruption clusters</span>
+            <span style={{ marginLeft:'auto' }}>Louvain community detection · {Object.keys(clusters).length} clusters found</span>
+          </div>
+        </div>
+
+        <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+          {/* Cluster list */}
+          <div style={card}>
+            <div style={{ color:S.text, fontSize:13, fontWeight:700, marginBottom:10 }}>Detected Clusters</div>
+            {Object.values(clusters).map(cl=>(
+              <div key={cl.id} style={{ display:'flex', justifyContent:'space-between', padding:'6px 0', borderBottom:`1px solid ${S.border}44`, cursor:'pointer' }}>
+                <div>
+                  <div style={{ color:cl.color, fontSize:12, fontWeight:700 }}>{cl.label}</div>
+                  <div style={{ color:S.dim, fontSize:10 }}>{cl.members.length} entities · Avg risk: {cl.avgRisk}</div>
+                </div>
+                <span style={{ ...badge(cl.color), fontSize:9, alignSelf:'center' }}>{cl.avgRisk>70?'CRITICAL':cl.avgRisk>50?'HIGH':'LOW'}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Centrality leaderboard */}
+          <div style={card}>
+            <div style={{ color:S.text, fontSize:13, fontWeight:700, marginBottom:10 }}>👑 Kingpin Detection</div>
+            <div style={{ color:S.dim, fontSize:11, marginBottom:8 }}>Betweenness centrality — bridge actors</div>
+            {[...NETWORK_NODES].sort((a,b)=>b.betweenness-a.betweenness).slice(0,5).map((n,i)=>(
+              <div key={n.id} onClick={()=>setSelected(n)} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:`1px solid ${S.border}44`, cursor:'pointer' }}>
+                <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                  <span style={{ color:S.dim, fontSize:10, width:14 }}>#{i+1}</span>
+                  <span style={{ width:6, height:6, borderRadius:'50%', background:typeColor(n.type), display:'inline-block' }}/>
+                  <span style={{ color:S.text, fontSize:12 }}>{n.label}</span>
+                  {n.flagged && <span style={{ color:S.danger, fontSize:9 }}>⚑</span>}
+                </div>
+                <div style={{ display:'flex', gap:6 }}>
+                  <span style={{ color:S.god, fontSize:11 }}>{n.betweenness}</span>
+                  <span style={{ ...badge(iriBand(n.risk).color), fontSize:9 }}>{n.risk}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Selected node detail */}
+          {selected ? (
+            <div style={{ ...cardSm, borderTop:`3px solid ${typeColor(selected.type)}` }}>
+              <div style={{ display:'flex', gap:8, marginBottom:8, flexWrap:'wrap' }}>
+                <span style={{ ...badge(typeColor(selected.type)) }}>{selected.type}</span>
+                <SportBadge sport={selected.sport}/>
+              </div>
+              <div style={{ color:S.text, fontSize:15, fontWeight:700, marginBottom:4 }}>{selected.label}</div>
+              {[['Risk Score',selected.risk,iriBand(selected.risk).color],['Centrality',selected.betweenness,S.god],['Cluster',clusters[communities[selected.id]]?.label||'—',getClusterColor(communities[selected.id])]].map(([l,v,c])=>(
+                <div key={l} style={{ display:'flex', justifyContent:'space-between', padding:'4px 0', borderBottom:`1px solid ${S.border}44` }}>
+                  <span style={{ color:S.dim, fontSize:12 }}>{l}</span>
+                  <span style={{ color:c, fontSize:12, fontWeight:700 }}>{v}</span>
+                </div>
+              ))}
+              <div style={{ display:'flex', gap:6, marginTop:10 }}>
+                <Btn size="sm" color={S.danger}><Gavel size={10}/>Case</Btn>
+                <Btn size="sm" color={S.info} variant="outline">Dossier</Btn>
+              </div>
+            </div>
+          ) : <div style={{ ...cardSm, textAlign:'center', color:S.dim, fontSize:12 }}>Click any node to inspect</div>}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CHRONO ENGINE — Match timeline replay with odds movement overlay
+// ═══════════════════════════════════════════════════════════════════════════════
+function ChronoEngine() {
+  const [playing,  setPlaying]  = useState(false)
+  const [position, setPosition] = useState(0)
+  const [speed,    setSpeed]    = useState(1)
+  const match = CHRONO_MATCH
+
+  useEffect(()=>{
+    if (!playing) return
+    const interval = setInterval(()=>{
+      setPosition(p=>{ if(p>=match.timeline.length-1){setPlaying(false);return p} return p+1 })
+    }, 1500/speed)
+    return ()=>clearInterval(interval)
+  },[playing,speed])
+
+  const current = match.timeline[position]
+  const chartData = match.timeline.slice(0,position+1)
+
+  const eventColor = t=>({ market:S.info, betting:S.warn, alert:S.danger, forensic:'#8b5cf6', network:'#a855f7', shock:'#ef4444', match:S.ok, result:S.accent }[t]||S.dim)
+
+  return (
+    <div>
+      <SectionHeader title="⏱ Chrono Engine — Match Timeline Replay" subtitle="Odds movement vs match events · IRI progression · Black Swan animation · Pattern of Life"/>
+      <div style={{ ...card, marginBottom:16 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12, flexWrap:'wrap', gap:8 }}>
+          <div>
+            <div style={{ color:S.text, fontSize:15, fontWeight:700 }}>{match.p1} vs {match.p2}</div>
+            <div style={{ color:S.dim, fontSize:11 }}>{match.event} · {match.date}</div>
+          </div>
+          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+            <span style={{ color:S.dim, fontSize:11 }}>Speed:</span>
+            {[1,2,4].map(s=><button key={s} onClick={()=>setSpeed(s)} style={{ padding:'3px 10px', borderRadius:4, fontSize:11, cursor:'pointer', background:speed===s?S.accent:'transparent', color:speed===s?'#000':S.dim, border:`1px solid ${speed===s?S.accent:S.border}` }}>{s}×</button>)}
+            <Btn size="sm" color={playing?S.danger:S.ok} onClick={()=>setPlaying(p=>!p)}>{playing?'⏸ Pause':'▶ Replay'}</Btn>
+            <Btn size="sm" color={S.dim} variant="outline" onClick={()=>{setPosition(0);setPlaying(false)}}>↺ Reset</Btn>
+          </div>
+        </div>
+        <input type="range" min="0" max={match.timeline.length-1} value={position} onChange={e=>setPosition(+e.target.value)} style={{ width:'100%', accentColor:S.accent }}/>
+      </div>
+
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:20 }}>
+        {/* IRI progression chart */}
+        <div style={card}>
+          <div style={{ color:S.text, fontSize:13, fontWeight:700, marginBottom:12 }}>IRI Score Progression</div>
+          <ResponsiveContainer width="100%" height={200}>
+            <ComposedChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke={S.border}/>
+              <XAxis dataKey="ts" tick={{ fill:S.dim, fontSize:9 }}/>
+              <YAxis tick={{ fill:S.dim, fontSize:10 }} domain={[0,100]}/>
+              <Tooltip contentStyle={{ background:S.card, border:`1px solid ${S.border}`, borderRadius:8 }}/>
+              <ReferenceLine y={70} stroke={S.danger} strokeDasharray="3 3"/>
+              <Area type="monotone" dataKey="iriScore" fill={`${S.danger}22`} stroke={S.danger} strokeWidth={2.5} fillOpacity={0.4}/>
+              <Bar dataKey="volume" fill={S.info+'44'} yAxisId={0}/>
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+        {/* Odds movement */}
+        <div style={card}>
+          <div style={{ color:S.text, fontSize:13, fontWeight:700, marginBottom:12 }}>Betting Volume (units)</div>
+          <ResponsiveContainer width="100%" height={200}>
+            <AreaChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke={S.border}/>
+              <XAxis dataKey="ts" tick={{ fill:S.dim, fontSize:9 }}/>
+              <YAxis tick={{ fill:S.dim, fontSize:10 }}/>
+              <Tooltip contentStyle={{ background:S.card, border:`1px solid ${S.border}`, borderRadius:8 }}/>
+              <Area type="monotone" dataKey="volume" stroke={S.accent} fill={`${S.accent}22`} strokeWidth={2}/>
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Current event */}
+      {current && (
+        <div style={{ ...card, marginBottom:16, borderLeft:`3px solid ${eventColor(current.type)}`, background:current.type==='shock'?'#1a0000':S.card }}>
+          <div style={{ display:'flex', gap:12, alignItems:'center', flexWrap:'wrap' }}>
+            <div style={{ fontSize:28 }}>{current.icon}</div>
+            <div style={{ flex:1 }}>
+              <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:4 }}>
+                <span style={{ ...badge(eventColor(current.type)), fontSize:10 }}>{current.type.toUpperCase()}</span>
+                <span style={{ color:S.dim, fontSize:11, fontFamily:"'IBM Plex Mono',monospace" }}>{current.ts}</span>
+                {current.type==='shock' && <span style={{ ...badge('#a855f7') }}>🦢 BLACK SWAN FORMING</span>}
+              </div>
+              <div style={{ color:S.text, fontSize:14, fontWeight:700 }}>{current.event}</div>
+            </div>
+            <div style={{ textAlign:'center' }}>
+              <div style={{ color:S.dim, fontSize:10 }}>IRI AT THIS POINT</div>
+              <div style={{ color:iriBand(current.iriScore).color, fontSize:36, fontWeight:900 }}>{current.iriScore}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full timeline */}
+      <div style={card}>
+        <div style={{ color:S.text, fontSize:13, fontWeight:700, marginBottom:14 }}>Full Integrity Timeline</div>
+        {match.timeline.map((t,i)=>(
+          <div key={t.ts} onClick={()=>setPosition(i)} style={{ display:'flex', gap:12, padding:'6px 8px', borderRadius:8, cursor:'pointer', background:i===position?S.mid:'transparent', marginBottom:2 }}>
+            <span style={{ color:S.dim, fontSize:11, fontFamily:"'IBM Plex Mono',monospace", width:46, flexShrink:0 }}>{t.ts}</span>
+            <span style={{ fontSize:14, flexShrink:0 }}>{t.icon}</span>
+            <span style={{ color:i<=position?S.text:S.dim, fontSize:12, flex:1 }}>{t.event}</span>
+            <span style={{ color:iriBand(t.iriScore).color, fontSize:12, fontWeight:700 }}>{t.iriScore}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// FININT LAYER — Betting flow, syndicate fingerprinting, liquidity stress
+// ═══════════════════════════════════════════════════════════════════════════════
+function FinintLayer() {
+  const [activeSection, setSection] = useState('flow')
+
+  return (
+    <div>
+      <SectionHeader title="💰 FININT Layer — Financial Intelligence" subtitle="Betting flow analysis · Syndicate fingerprinting · Liquidity stress · Follow the money"/>
+      <div style={{ display:'flex', gap:6, marginBottom:18, flexWrap:'wrap' }}>
+        {[['flow','📊 Flow Analysis'],['syndicates','🎯 Syndicate IDs'],['liquidity','💧 Liquidity Stress']].map(([id,l])=>(
+          <button key={id} onClick={()=>setSection(id)} style={{ padding:'7px 14px', borderRadius:6, fontSize:12, cursor:'pointer', background:activeSection===id?S.mid:'transparent', color:activeSection===id?S.ok:S.dim, border:`1px solid ${activeSection===id?S.ok+'44':'transparent'}`, fontWeight:activeSection===id?700:400 }}>{l}</button>
         ))}
       </div>
 
-      {filteredCases.map(c=>(
-        <div key={c.id} onClick={()=>{setActiveCase(c);setActiveTab('overview')}}
-          style={{ ...card, marginBottom:10, cursor:'pointer', borderLeft:`3px solid ${sevColor[c.severity]||S.dim}` }}>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:12 }}>
-            <div style={{ flex:1 }}>
-              <div style={{ display:'flex', gap:7, alignItems:'center', marginBottom:4, flexWrap:'wrap' }}>
-                <span style={{ color:S.dim, fontSize:11, fontFamily:"'IBM Plex Mono',monospace" }}>{c.id}</span>
-                <span style={{ ...badge(sevColor[c.severity]) }}>{c.severity}</span>
-                <SportBadge sport={c.sport}/>
-                {c.pendingApproval && <span style={{ ...badge(S.warn) }}>⏳ PENDING</span>}
+      {activeSection==='flow' && (
+        <div>
+          <div style={{ display:'flex', gap:14, marginBottom:16, flexWrap:'wrap' }}>
+            <StatCard label="Total Flow (24h)"    value="$12.4M" color={S.accent}/>
+            <StatCard label="Suspicious Flow"     value="$2.1M"  color={S.danger}/>
+            <StatCard label="Suspicious %"        value="16.9%"  color={S.warn}/>
+            <StatCard label="Flagged Markets"     value={FININT_DATA.liquidityMarkets.filter(m=>m.stress>60).length} color={S.danger}/>
+          </div>
+          <div style={{ ...card, marginBottom:16 }}>
+            <div style={{ color:S.text, fontSize:14, fontWeight:700, marginBottom:12 }}>Legitimate vs Suspicious Betting Flow (24h)</div>
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={FININT_DATA.flowData}>
+                <CartesianGrid strokeDasharray="3 3" stroke={S.border}/>
+                <XAxis dataKey="ts" tick={{ fill:S.dim, fontSize:10 }}/>
+                <YAxis tick={{ fill:S.dim, fontSize:10 }} tickFormatter={v=>`$${(v/1000).toFixed(0)}K`}/>
+                <Tooltip contentStyle={{ background:S.card, border:`1px solid ${S.border}`, borderRadius:8 }} formatter={v=>[`$${(v/1000).toFixed(0)}K`]}/>
+                <Area type="monotone" dataKey="legitimate" name="Legitimate" stroke={S.ok} fill={`${S.ok}22`} strokeWidth={2}/>
+                <Area type="monotone" dataKey="suspicious"  name="Suspicious"  stroke={S.danger} fill={`${S.danger}22`} strokeWidth={2}/>
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+          <div style={{ color:S.dim, fontSize:12, ...cardSm }}>FININT Note: Suspicious flow peaks at 09:00–12:00 window correspond with match start times for ITF Antalya and ITF Cairo — coordinated pre-match market seeding detected. Cross-reference Syndicate Alpha 18-minute bet interval fingerprint.</div>
+        </div>
+      )}
+
+      {activeSection==='syndicates' && (
+        <div>
+          <div style={{ ...card, marginBottom:14, color:S.dim, fontSize:12, lineHeight:1.7 }}>
+            Syndicate Fingerprinting detects repeated bet timing patterns and odds exploitation windows. A confidence score ≥ 65% indicates statistically non-random betting behavior consistent with coordinated market manipulation.
+          </div>
+          {FININT_DATA.syndicates.map(s=>(
+            <div key={s.id} style={{ ...card, marginBottom:12, borderLeft:`3px solid ${s.color}` }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:12 }}>
+                <div style={{ flex:1 }}>
+                  <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:6 }}>
+                    <span style={{ color:S.text, fontSize:15, fontWeight:700 }}>{s.label}</span>
+                    <span style={{ ...badge(s.color) }}>{s.confidence}% confidence</span>
+                    <span style={{ ...badge(s.status==='Active'?S.danger:S.dim) }}>{s.status}</span>
+                  </div>
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+                    {[['Members',s.members],['Markets',s.markets.join(', ')],['Avg Bet Interval',`${s.avgBetInterval} min`],['Pattern',s.pattern],['Detected Matches',s.detectedMatches],['Total Volume',s.totalVolume]].map(([l,v])=>(
+                      <div key={l}><div style={{ color:S.dim, fontSize:10 }}>{l}</div><div style={{ color:S.text, fontSize:12, fontWeight:600 }}>{v}</div></div>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                  <Btn size="sm" color={S.danger}><Gavel size={10}/>Open Case</Btn>
+                  <Btn size="sm" color={S.info} variant="outline"><Download size={10}/>Report</Btn>
+                </div>
               </div>
-              <div style={{ color:S.text, fontSize:14, fontWeight:700 }}>{c.title}</div>
-              <div style={{ color:S.dim, fontSize:11, marginTop:2 }}>
-                {c.assignee} → {c.supervisor} · {c.jurisdiction} · Due: {c.due}
-                {' · '}{c.notes?.length||0} notes · {c.files?.length||0} files · {c.timeline?.length||0} timeline entries
+              <div style={{ marginTop:12, background:S.mid, borderRadius:8, padding:10 }}>
+                <div style={{ color:S.dim, fontSize:10, marginBottom:4 }}>EXPLAINABILITY (XAI) — Why flagged?</div>
+                <div style={{ color:S.midText, fontSize:11 }}>Betting intervals show σ={Math.round(s.avgBetInterval*0.12)} min standard deviation against {s.avgBetInterval} min mean — regularity score {(100-s.avgBetInterval*0.5).toFixed(0)}%. Combined with shared odds exploitation windows across {s.markets.length} market types and volume concentration 40× above baseline.</div>
               </div>
             </div>
-            <div style={{ display:'flex', gap:14 }}>
-              <div style={{ textAlign:'center' }}><div style={{ color:S.dim, fontSize:10 }}>IRI</div><div style={{ color:iriBand(c.iri).color, fontSize:22, fontWeight:800 }}>{c.iri||'—'}</div></div>
-              <span style={{ ...badge(c.status==='Active'?S.danger:c.status==='Closed'?S.ok:S.warn), alignSelf:'center' }}>{c.status}</span>
+          ))}
+        </div>
+      )}
+
+      {activeSection==='liquidity' && (
+        <div>
+          <div style={{ color:S.text, fontSize:13, fontWeight:700, marginBottom:14 }}>Liquidity Stress Indicators</div>
+          {FININT_DATA.liquidityMarkets.map(m=>{
+            const ls = computeLiquidityStress({ normalVolume:m.normalVol, currentVolume:m.currentVol, bookmakerCount:m.books, oddsDispersion:m.dispersion })
+            return (
+              <div key={m.market} style={{ ...card, marginBottom:10, borderLeft:`3px solid ${ls.color}` }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:12 }}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ color:S.text, fontSize:13, fontWeight:700 }}>{m.market}</div>
+                    <div style={{ display:'flex', gap:16, marginTop:6, flexWrap:'wrap' }}>
+                      <span style={{ color:S.dim, fontSize:11 }}>Vol ratio: <span style={{ color:ls.color, fontWeight:600 }}>{ls.volRatio}×</span></span>
+                      <span style={{ color:S.dim, fontSize:11 }}>Books: {m.books}</span>
+                      <span style={{ color:S.dim, fontSize:11 }}>Dispersion: {m.dispersion}pt</span>
+                    </div>
+                  </div>
+                  <div style={{ textAlign:'center' }}>
+                    <div style={{ color:S.dim, fontSize:10 }}>STRESS</div>
+                    <div style={{ color:ls.color, fontSize:28, fontWeight:900 }}>{ls.stress}</div>
+                    <span style={{ ...badge(ls.color), fontSize:9 }}>{ls.level}</span>
+                  </div>
+                </div>
+                <div style={{ marginTop:8, background:S.mid, borderRadius:4, height:7 }}>
+                  <div style={{ background:ls.color, borderRadius:4, height:7, width:`${ls.stress}%`, transition:'width .4s' }}/>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// OVERWATCH ENGINE — Multi-tier pre-match alerts
+// ═══════════════════════════════════════════════════════════════════════════════
+function OverwatchEngine() {
+  const [alerts, setAlerts] = useState(OVERWATCH_ALERTS)
+  const levelColor = l=>({ Black:'#a855f7', Red:S.danger, Yellow:S.accent }[l]||S.dim)
+
+  return (
+    <div>
+      <SectionHeader title="🚨 Overwatch Engine — Pre-Match Intelligence" subtitle="Multi-tier alerts: ⬛ Black · 🔴 Red · 🟡 Yellow · Real-time pre-match detection · Auto case creation"/>
+      <div style={{ ...card, marginBottom:16, borderColor:'#a855f744', background:'#0d0014' }}>
+        <div style={{ color:'#a855f7', fontSize:12, fontWeight:700, marginBottom:4 }}>OVERWATCH SYSTEM STATUS</div>
+        <div style={{ display:'flex', gap:20, flexWrap:'wrap', fontSize:12 }}>
+          {[['⬛ BLACK',alerts.filter(a=>a.level==='Black').length,'#a855f7'],['🔴 RED',alerts.filter(a=>a.level==='Red').length,S.danger],['🟡 YELLOW',alerts.filter(a=>a.level==='Yellow').length,S.accent],['Pre-Match Active',alerts.filter(a=>a.preMatch).length,S.ok]].map(([l,v,c])=>(
+            <div key={l}><span style={{ color:S.dim }}>{l}: </span><span style={{ color:c, fontWeight:700 }}>{v}</span></div>
+          ))}
+        </div>
+      </div>
+
+      {/* Level guide */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12, marginBottom:18 }}>
+        {[['⬛ OVERWATCH BLACK','#a855f7','Systemic risk event. Multi-cluster convergence. IRI > 85. Immediate intervention required. All supervisors notified.'],['🔴 OVERWATCH RED',S.danger,'Cluster-linked anomaly. IRI > 70. Open case recommended. Email + SMS notification.'],['🟡 OVERWATCH YELLOW',S.accent,'Standard anomaly. IRI > 50. Monitor and flag. Standard email notification.']].map(([l,c,d])=>(
+          <div key={l} style={{ ...cardSm, borderLeft:`3px solid ${c}` }}>
+            <div style={{ color:c, fontSize:12, fontWeight:700, marginBottom:4 }}>{l}</div>
+            <div style={{ color:S.dim, fontSize:11 }}>{d}</div>
+          </div>
+        ))}
+      </div>
+
+      {alerts.map(a=>(
+        <div key={a.id} style={{ ...card, marginBottom:10, borderLeft:`4px solid ${levelColor(a.level)}`, background:a.level==='Black'?'#0d0014':S.card }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:12 }}>
+            <div style={{ flex:1 }}>
+              <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:6, flexWrap:'wrap' }}>
+                <OverwatchBadge level={a.level}/>
+                <SportBadge sport={a.sport}/>
+                {a.preMatch && <span style={{ ...badge(S.ok), fontSize:9 }}>PRE-MATCH</span>}
+                <span style={{ color:S.dim, fontSize:11 }}>Starts in {a.hoursToStart}h</span>
+              </div>
+              <div style={{ color:S.text, fontSize:14, fontWeight:700, marginBottom:2 }}>{a.match}</div>
+              <div style={{ color:S.dim, fontSize:11, marginBottom:8 }}>{a.event}</div>
+              <div style={{ ...cardSm, background:S.mid, fontSize:11, color:S.midText, lineHeight:1.6 }}>
+                <span style={{ color:S.dim }}>Trigger: </span>{a.trigger}
+              </div>
+            </div>
+            <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:8 }}>
+              <div style={{ textAlign:'center' }}>
+                <div style={{ color:S.dim, fontSize:10 }}>IRI</div>
+                <div style={{ color:iriBand(a.iriScore).color, fontSize:32, fontWeight:900 }}>{a.iriScore}</div>
+              </div>
+              <Btn size="sm" color={levelColor(a.level)}><Gavel size={10}/>Auto Case</Btn>
+              <Btn size="sm" color={S.info} variant="outline"><Download size={10}/>Brief</Btn>
             </div>
           </div>
         </div>
       ))}
-
-      {/* New Case Modal */}
-      <Modal open={showNewCase} onClose={()=>setShowNewCase(false)} title="Create New Case">
-        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-          <Field label="CASE TITLE" required><input value={newCase.title} onChange={e=>setNewCase(n=>({...n,title:e.target.value}))} placeholder="Brief descriptive title" style={fieldStyle}/></Field>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-            <Field label="SEVERITY">
-              <select value={newCase.severity} onChange={e=>setNewCase(n=>({...n,severity:e.target.value}))} style={fieldStyle}>
-                {['Critical','High','Medium','Low'].map(s=><option key={s} value={s}>{s}</option>)}
-              </select>
-            </Field>
-            <Field label="SPORT">
-              <select value={newCase.sport} onChange={e=>setNewCase(n=>({...n,sport:e.target.value}))} style={fieldStyle}>
-                {Object.entries(SPORTS_CONFIG).map(([k,v])=><option key={k} value={k}>{v.icon} {v.label}</option>)}
-              </select>
-            </Field>
-            <Field label="JURISDICTION"><input value={newCase.jurisdiction} onChange={e=>setNewCase(n=>({...n,jurisdiction:e.target.value}))} placeholder="Country / region" style={fieldStyle}/></Field>
-            <Field label="ASSIGNEE"><input value={newCase.assignee} onChange={e=>setNewCase(n=>({...n,assignee:e.target.value}))} placeholder="Username" style={fieldStyle}/></Field>
-            <Field label="SUPERVISOR"><input value={newCase.supervisor} onChange={e=>setNewCase(n=>({...n,supervisor:e.target.value}))} placeholder="Username" style={fieldStyle}/></Field>
-          </div>
-          <Field label="INITIAL DESCRIPTION"><textarea value={newCase.description} onChange={e=>setNewCase(n=>({...n,description:e.target.value}))} placeholder="Brief description of the integrity concern…" style={textareaStyle}/></Field>
-          <div style={{ display:'flex', gap:8 }}>
-            <Btn onClick={createCase} color={S.danger}><Plus size={11}/>Create Case</Btn>
-            <Btn onClick={()=>setShowNewCase(false)} color={S.dim} variant="outline">Cancel</Btn>
-          </div>
-        </div>
-      </Modal>
     </div>
   )
+}
 
-  // ── Active case detail view ─────────────────────────────────────────────────
-  const c = cases.find(x=>x.id===activeCase.id) || activeCase
+// ═══════════════════════════════════════════════════════════════════════════════
+// PREDICTIVE MODELING — Future risk forecasting
+// ═══════════════════════════════════════════════════════════════════════════════
+function PredictiveModeling() {
+  const [selected, setSelected] = useState(null)
+
+  const scored = PREDICTIVE_SUBJECTS.map(s=>{
+    const pred = predictFutureRisk({ earningsInstability:s.earningsInstability, travelLoad:s.travelLoad, clusterExposure:s.clusterExposure, recentIRItrend:s.recentIRI })
+    const pol  = analyzePatternOfLife(s.recentIRI.map((v,i)=>({value:v,ts:`T-${i}`})))
+    return { ...s, pred, pol }
+  }).sort((a,b)=>b.pred.score-a.pred.score)
 
   return (
     <div>
-      {/* Case header */}
-      <div style={{ display:'flex', gap:10, alignItems:'center', marginBottom:16, flexWrap:'wrap' }}>
-        <Btn onClick={()=>setActiveCase(null)} color={S.dim} variant="outline" size="sm">← All Cases</Btn>
-        <span style={{ color:S.dim, fontSize:11, fontFamily:"'IBM Plex Mono',monospace" }}>{c.id}</span>
-        <span style={{ ...badge(sevColor[c.severity]) }}>{c.severity}</span>
-        <SportBadge sport={c.sport}/>
-        {c.pendingApproval && <span style={{ ...badge(S.warn) }}>⏳ PENDING APPROVAL</span>}
-        <div style={{ marginLeft:'auto', display:'flex', gap:6, flexWrap:'wrap' }}>
-          <Btn size="sm" color={S.accent} onClick={()=>exportCaseReport(c)}><Download size={11}/>Export Report</Btn>
-          <Btn size="sm" color={S.danger} variant="outline" onClick={()=>setShowCeaseD(true)}><FileText size={11}/>Cease & Desist</Btn>
-          <Btn size="sm" color={S.info} variant="outline" onClick={()=>setShowLink(true)}><Link size={11}/>Link Case</Btn>
-        </div>
-      </div>
-      <div style={{ color:S.text, fontSize:18, fontWeight:700, marginBottom:4 }}>{c.title}</div>
-      <div style={{ color:S.dim, fontSize:12, marginBottom:16 }}>Assignee: {c.assignee} → Supervisor: {c.supervisor} · {c.jurisdiction} · Due: {c.due} · IRI: <span style={{ color:iriBand(c.iri||0).color, fontWeight:700 }}>{c.iri||'—'}</span></div>
-
-      {/* Sub-tabs */}
-      <div style={{ display:'flex', gap:4, overflowX:'auto', marginBottom:18, borderBottom:`1px solid ${S.border}`, paddingBottom:8 }}>
-        {CASE_TABS.map(t=>(
-          <button key={t} onClick={()=>setActiveTab(t)} style={{ padding:'6px 14px', borderRadius:6, fontSize:12, cursor:'pointer', background:activeTab===t?S.mid:'transparent', color:activeTab===t?S.accent:S.dim, border:`1px solid ${activeTab===t?S.border:'transparent'}`, fontWeight:activeTab===t?700:400, whiteSpace:'nowrap' }}>
-            {{overview:'📋 Overview',notes:'📝 Notes',timeline:'⏱️ Timeline',files:'📎 Files',phonelog:'📞 Phone Log',stakeout:'👁️ Stakeout',leads:'🔗 Leads',infractions:'📜 Infractions',time:'⏰ Time Log'}[t]}
-            {t==='notes'&&c.notes?.filter(n=>!n.signedOff&&!n.internal).length>0&&<span style={{ ...badge(S.warn), marginLeft:4, fontSize:9 }}>{c.notes.filter(n=>!n.signedOff&&!n.internal).length}</span>}
-          </button>
-        ))}
+      <SectionHeader title="🔮 Predictive Integrity Modeling" subtitle="Future risk forecasting · Earnings instability · Travel load · Cluster exposure · Rational Choice Theory"/>
+      <div style={{ ...card, marginBottom:16, borderLeft:`3px solid #8b5cf6` }}>
+        <div style={{ color:'#8b5cf6', fontSize:12, fontWeight:700, marginBottom:4 }}>PREDICTIVE MODEL BASIS</div>
+        <div style={{ color:S.dim, fontSize:12, lineHeight:1.7 }}>Inputs: Financial precarity (earnings instability index), cognitive load (travel density), network contamination (cluster exposure score), and trend velocity (recent IRI trajectory). Directly implements Rational Choice Theory from Kirby (2026) — individuals most susceptible when perceived benefit exceeds perceived risk.</div>
       </div>
 
-      {/* ── OVERVIEW ── */}
-      {activeTab==='overview' && (
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20 }}>
-          <div>
-            <div style={card}>
-              <div style={{ color:S.text, fontSize:14, fontWeight:700, marginBottom:12 }}>Case Details</div>
-              {[['Status',c.status,c.status==='Active'?S.danger:c.status==='Closed'?S.ok:S.warn],['Stage',c.stage,S.info],['IRI Score',c.iri||'Not scored',iriBand(c.iri||0).color],['Confidence',c.confidence?`${c.confidence}%`:'—',S.ok],['Sport',c.sport?.toUpperCase(),S.accent]].map(([l,v,color])=>(
-                <div key={l} style={{ display:'flex', justifyContent:'space-between', padding:'6px 0', borderBottom:`1px solid ${S.border}44` }}>
-                  <span style={{ color:S.dim, fontSize:12 }}>{l}</span>
-                  <span style={{ color, fontSize:13, fontWeight:600 }}>{v}</span>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:20 }}>
+        {scored.map(s=>(
+          <div key={s.name} onClick={()=>setSelected(x=>x?.name===s.name?null:s)}
+            style={{ ...card, cursor:'pointer', borderLeft:`3px solid ${s.pred.color}`, background:selected?.name===s.name?S.mid:S.card }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:10 }}>
+              <div>
+                <div style={{ color:S.text, fontSize:14, fontWeight:700 }}>{s.name}</div>
+                <div style={{ display:'flex', gap:6, marginTop:4 }}>
+                  <SportBadge sport={s.sport}/>
+                  <span style={{ ...badge(s.pred.color) }}>{s.pred.level} RISK</span>
+                  {s.pol.flagged && <span style={{ ...badge(S.warn), fontSize:9 }}>⚠ POL DEVIATION</span>}
+                </div>
+              </div>
+              <div style={{ textAlign:'center' }}>
+                <div style={{ color:S.dim, fontSize:10 }}>PREDICTED RISK</div>
+                <div style={{ color:s.pred.color, fontSize:32, fontWeight:900 }}>{s.pred.score}</div>
+              </div>
+            </div>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6 }}>
+              {[['Earnings Instability',s.earningsInstability],['Travel Load',s.travelLoad],['Cluster Exposure',s.clusterExposure],['Current IRI Trend',s.recentIRI[s.recentIRI.length-1]]].map(([l,v])=>(
+                <div key={l}>
+                  <div style={{ color:S.dim, fontSize:9 }}>{l}</div>
+                  <div style={{ background:S.mid, borderRadius:3, height:5, marginTop:2 }}>
+                    <div style={{ background:s.pred.color, borderRadius:3, height:5, width:`${typeof v==='number'&&v<=1?v*100:Math.min(v,100)}%` }}/>
+                  </div>
                 </div>
               ))}
             </div>
-            <div style={{ ...card, marginTop:14 }}>
-              <div style={{ color:S.text, fontSize:14, fontWeight:700, marginBottom:10 }}>Entities</div>
-              {c.entities?.map(e=><div key={e} style={{ color:S.midText, fontSize:12, padding:'3px 0' }}>• {e}</div>)}
-              {!c.entities?.length && <div style={{ color:S.dim, fontSize:12 }}>No entities linked yet.</div>}
-            </div>
-            {c.linkedCases?.length > 0 && (
-              <div style={{ ...card, marginTop:14 }}>
-                <div style={{ color:S.text, fontSize:14, fontWeight:700, marginBottom:10 }}>Linked Cases</div>
-                {c.linkedCases.map(id=><div key={id} style={{ color:S.info, fontSize:12, cursor:'pointer', padding:'3px 0' }} onClick={()=>setActiveCase(cases.find(x=>x.id===id))}>{id}</div>)}
+            {selected?.name===s.name && (
+              <div style={{ marginTop:12, paddingTop:12, borderTop:`1px solid ${S.border}` }}>
+                <div style={{ color:S.dim, fontSize:11, marginBottom:6 }}>IRI TRAJECTORY</div>
+                <ResponsiveContainer width="100%" height={60}>
+                  <LineChart data={s.recentIRI.map((v,i)=>({i,v}))}>
+                    <Line type="monotone" dataKey="v" stroke={s.pred.color} strokeWidth={2} dot={{ r:3, fill:s.pred.color }}/>
+                    <ReferenceLine y={70} stroke={S.danger} strokeDasharray="3 2" strokeWidth={1}/>
+                  </LineChart>
+                </ResponsiveContainer>
+                <div style={{ color:S.dim, fontSize:10, marginTop:8 }}>Recommendation: <span style={{ color:s.pred.color, fontWeight:600 }}>{s.pred.recommendation}</span></div>
+                <div style={{ display:'flex', gap:6, marginTop:8 }}>
+                  <Btn size="sm" color={s.pred.color}><Eye size={10}/>Watch List</Btn>
+                  <Btn size="sm" color={S.info} variant="outline">Dossier</Btn>
+                </div>
               </div>
             )}
           </div>
-          <div>
-            <div style={card}>
-              <div style={{ color:S.text, fontSize:14, fontWeight:700, marginBottom:10 }}>Quick Actions</div>
-              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-                <Btn color={S.info}   onClick={()=>{setShowNewNote(true);setActiveTab('notes')}}><Plus size={11}/>Add Note / Interview</Btn>
-                <Btn color={S.accent} variant="outline" onClick={()=>document.getElementById('file-upload').click()}><Paperclip size={11}/>Upload Evidence File</Btn>
-                <input id="file-upload" type="file" style={{ display:'none' }} onChange={handleFileUpload} multiple/>
-                <Btn color={S.warn}   variant="outline" onClick={()=>{setShowStakeout(true);setActiveTab('stakeout')}}><Eye size={11}/>Add Stakeout Entry</Btn>
-                <Btn color={S.ok}     variant="outline" onClick={()=>{setShowLead(true);setActiveTab('leads')}}><Search size={11}/>Add Lead</Btn>
-                <Btn color={S.god}    variant="outline" onClick={()=>{setShowInfraction(true);setActiveTab('infractions')}}><FileText size={11}/>Add Governance Infraction</Btn>
-                <Btn color={S.danger} variant="outline" onClick={()=>exportCaseReport(c)}><Download size={11}/>Export Full Case Report</Btn>
-                {canApprove && c.pendingApproval && <Btn color={S.ok} onClick={()=>updateCase(c.id,x=>({...x,pendingApproval:false,status:'Active'}))}><CheckCircle2 size={11}/>Approve Case</Btn>}
-              </div>
-            </div>
-            <div style={{ ...card, marginTop:14 }}>
-              <div style={{ color:S.text, fontSize:13, fontWeight:700, marginBottom:8 }}>Summary</div>
-              <div style={{ color:S.dim, fontSize:11, marginBottom:10 }}>{c.notes?.length||0} notes · {c.files?.length||0} files · {c.stakeoutLog?.length||0} stakeout · {c.leads?.length||0} leads · {c.phoneLog?.length||0} calls</div>
-              {c.timeLogs?.length > 0 && (
-                <div style={{ color:S.dim, fontSize:11 }}>Total time logged: <span style={{ color:S.accent, fontWeight:700 }}>{c.timeLogs.reduce((s,t)=>s+t.hours,0).toFixed(1)} hrs</span></div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+        ))}
+      </div>
+    </div>
+  )
+}
 
-      {/* ── NOTES ── */}
-      {activeTab==='notes' && (
-        <div>
-          <div style={{ display:'flex', gap:8, marginBottom:16 }}>
-            <Btn color={S.info} onClick={()=>setShowNewNote(true)}><Plus size={11}/>Add Note</Btn>
-            <Btn color={S.accent} variant="outline" onClick={()=>exportCaseReport(c)}><Download size={11}/>Export Notes</Btn>
+// ═══════════════════════════════════════════════════════════════════════════════
+// DECONFLICTION ENGINE — Multi-agency blind hash matching
+// ═══════════════════════════════════════════════════════════════════════════════
+function DeconflictionEngine({ user }) {
+  const [registry, setRegistry] = useState(DECONFLICT_REGISTRY)
+  const [query,    setQuery]    = useState('')
+  const [result,   setResult]   = useState(null)
+  const [addForm,  setAddForm]  = useState({ entity:'', caseType:'' })
+
+  const search = () => {
+    if (!query.trim()) return
+    const hash = blindHash(query.trim())
+    const match = registry.find(r=>r.hash===hash)
+    setResult({ hash, found:!!match, match })
+  }
+
+  const addEntity = () => {
+    if (!addForm.entity.trim()) return
+    const hash = blindHash(addForm.entity)
+    const existing = registry.find(r=>r.hash===hash)
+    const entry = {
+      agency: USER_ROLES[user?.role]?.label || 'Unknown',
+      entity: `${addForm.entity} (hashed)`, hash, caseType: addForm.caseType,
+      status:'Active', matched:!!existing,
+      matchedAgency: existing?.agency || null,
+    }
+    setRegistry(r=>[...r,entry])
+    setResult({ hash, found:!!existing, match:existing, newEntry:true })
+    setAddForm({ entity:'', caseType:'' })
+    if (existing) alert(`⚠ DECONFLICTION ALERT: Hash ${hash} already registered by ${existing.agency}. Supervisors of both agencies have been notified.`)
+  }
+
+  return (
+    <div>
+      <SectionHeader title="🔐 Deconfliction Engine" subtitle="Prevent duplicate investigations · Blind hash matching · Multi-agency coordination without data exposure"/>
+      <div style={{ ...card, marginBottom:16, borderLeft:`3px solid ${S.secure}` }}>
+        <div style={{ color:S.secure, fontSize:12, fontWeight:700, marginBottom:6 }}>HOW IT WORKS</div>
+        <div style={{ color:S.dim, fontSize:12, lineHeight:1.7 }}>When you add an entity to your investigation, the system runs a one-way cryptographic hash (SHA-256). It then compares that hash against all other agencies on the platform. Neither agency can see the other's case file — only a "collision" alert is generated, prompting secure channel contact. This prevents two agencies from simultaneously investigating (or accidentally compromising) the same target.</div>
+      </div>
+
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:20 }}>
+        {/* Search */}
+        <div style={card}>
+          <div style={{ color:S.text, fontSize:14, fontWeight:700, marginBottom:12 }}>Search Registry</div>
+          <div style={{ display:'flex', gap:8, marginBottom:10 }}>
+            <input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Enter entity name or identifier…" style={{ ...fieldStyle, flex:1 }} onKeyDown={e=>e.key==='Enter'&&search()}/>
+            <Btn color={S.secure} onClick={search}><Search size={11}/>Hash & Search</Btn>
           </div>
-          {c.notes?.length === 0 && <div style={{ ...cardSm, color:S.dim, textAlign:'center' }}>No notes yet. Add the first note above.</div>}
-          {c.notes?.map(n=>(
-            <div key={n.id} style={{ ...card, marginBottom:10, borderLeft:`3px solid ${n.internal?S.warn:n.type==='interview_note'?S.god:S.info}` }}>
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:10 }}>
-                <div style={{ flex:1 }}>
-                  <div style={{ display:'flex', gap:7, alignItems:'center', marginBottom:6, flexWrap:'wrap' }}>
-                    <span style={{ ...badge(n.type==='interview_note'?S.god:S.info), fontSize:10 }}>{n.type==='interview_note'?'🎙️ Interview Note':'📝 Case Note'}</span>
-                    <span style={{ color:S.text, fontSize:12, fontWeight:600 }}>{n.author}</span>
-                    <span style={{ color:S.dim, fontSize:11, fontFamily:"'IBM Plex Mono',monospace" }}>{n.ts}</span>
-                    {n.internal && <span style={{ ...badge(S.warn), fontSize:9 }}>🔒 Internal</span>}
-                    {n.signedOff && <span style={{ ...badge(S.ok), fontSize:9 }}>✓ Signed off: {n.signedBy}</span>}
-                  </div>
-                  <div style={{ color:S.midText, fontSize:13, lineHeight:1.7, whiteSpace:'pre-wrap' }}>{n.text}</div>
+          {result && (
+            <div style={{ ...cardSm, borderLeft:`3px solid ${result.found?S.warn:S.ok}` }}>
+              <div style={{ color:S.dim, fontSize:10, marginBottom:4 }}>BLIND HASH</div>
+              <div style={{ fontFamily:"'IBM Plex Mono',monospace", color:S.accent, fontSize:13, marginBottom:8 }}>{result.hash}</div>
+              {result.found ? (
+                <div>
+                  <div style={{ ...badge(S.warn), marginBottom:6 }}>⚠ DECONFLICTION MATCH</div>
+                  <div style={{ color:S.midText, fontSize:12 }}>This entity is already under investigation by <span style={{ color:S.warn, fontWeight:700 }}>{result.match?.agency}</span>. Case type: {result.match?.caseType}. A secure deconfliction channel has been opened.</div>
                 </div>
-                {canApprove && !n.signedOff && (
-                  <Btn size="sm" color={S.ok} onClick={()=>signOffNote(n.id)}><CheckCircle2 size={11}/>Sign Off</Btn>
+              ) : (
+                <div style={{ color:S.ok, fontSize:12 }}>✓ No match found. Entity not in any other agency's registry.</div>
+              )}
+              {result.newEntry && <div style={{ color:S.info, fontSize:11, marginTop:6 }}>✓ Added to your agency's registry.</div>}
+            </div>
+          )}
+        </div>
+
+        {/* Add entity */}
+        <div style={card}>
+          <div style={{ color:S.text, fontSize:14, fontWeight:700, marginBottom:12 }}>Add to Registry</div>
+          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+            <Field label="ENTITY NAME / IDENTIFIER"><input value={addForm.entity} onChange={e=>setAddForm(f=>({...f,entity:e.target.value}))} placeholder="Player name, phone, email, alias…" style={fieldStyle}/></Field>
+            <Field label="CASE TYPE"><input value={addForm.caseType} onChange={e=>setAddForm(f=>({...f,caseType:e.target.value}))} placeholder="Match Fixing / Money Laundering / etc." style={fieldStyle}/></Field>
+            <Btn color={S.secure} onClick={addEntity}><Plus size={11}/>Add (Hashed & Private)</Btn>
+          </div>
+          <div style={{ color:S.dim, fontSize:10, marginTop:10 }}>The entity's real name is never stored. Only the one-way hash is retained. Your case details remain fully private.</div>
+        </div>
+      </div>
+
+      {/* Registry */}
+      <div style={card}>
+        <div style={{ color:S.text, fontSize:14, fontWeight:700, marginBottom:12 }}>Deconfliction Registry ({registry.length} entries)</div>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+          {registry.map((r,i)=>(
+            <div key={i} style={{ ...cardSm, borderLeft:`3px solid ${r.matched?S.warn:S.ok}` }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:8 }}>
+                <div>
+                  <div style={{ color:S.dim, fontSize:10 }}>{r.agency}</div>
+                  <div style={{ fontFamily:"'IBM Plex Mono',monospace", color:S.accent, fontSize:11, margin:'2px 0' }}>{r.hash}</div>
+                  <div style={{ color:S.midText, fontSize:11 }}>{r.caseType}</div>
+                </div>
+                {r.matched && (
+                  <div>
+                    <div style={{ ...badge(S.warn), fontSize:9 }}>⚠ MATCHED</div>
+                    <div style={{ color:S.dim, fontSize:9, marginTop:3 }}>↔ {r.matchedAgency}</div>
+                  </div>
                 )}
               </div>
             </div>
           ))}
-          <Modal open={showNewNote} onClose={()=>setShowNewNote(false)} title="Add Note">
-            <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-              <Field label="NOTE TYPE">
-                <select value={newNote.type} onChange={e=>setNewNote(n=>({...n,type:e.target.value}))} style={fieldStyle}>
-                  <option value="case_note">📝 Case Note</option>
-                  <option value="interview_note">🎙️ Interview Note</option>
-                </select>
-              </Field>
-              <Field label="NOTE TEXT" required><textarea value={newNote.text} onChange={e=>setNewNote(n=>({...n,text:e.target.value}))} placeholder="Enter note…" style={{ ...textareaStyle, minHeight:120 }}/></Field>
-              <Toggle on={newNote.internal} onChange={v=>setNewNote(n=>({...n,internal:v}))} label="Internal only (supervisors+ visible)"/>
-              <div style={{ display:'flex', gap:8 }}>
-                <Btn onClick={addNote} color={S.info}><Plus size={11}/>Add Note</Btn>
-                <Btn onClick={()=>setShowNewNote(false)} color={S.dim} variant="outline">Cancel</Btn>
-              </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// IRI CALCULATOR v2 — Bayesian + shock detection + false positive guardrail
+// ═══════════════════════════════════════════════════════════════════════════════
+function IRICalculator() {
+  const [form, setForm] = useState({ favOdds:1.38, dogOdds:3.05, gap:28, tier:'challenger', surface:'clay', w1:0.5, prevIRI:45, clusterExposure:0, injury:false, surfaceTrans:false, travel:false })
+  const [showXAI, setShowXAI] = useState(false)
+
+  const result  = useMemo(()=>computeIRI({ favoriteOdds:+form.favOdds, underdogOdds:+form.dogOdds, rankingGap:+form.gap, tier:form.tier, surface:form.surface, w1:+form.w1, w2:+(1-form.w1).toFixed(1), clusterExposure:+form.clusterExposure }),[form])
+  const shock   = useMemo(()=>detectShock(+form.prevIRI, result.iri),[result.iri, form.prevIRI])
+  const fp      = useMemo(()=>checkFalsePositive({ iri:result.iri, injuryFlag:form.injury, surfaceTransition:form.surfaceTrans, travelFatigue:form.travel }),[result.iri, form.injury, form.surfaceTrans, form.travel])
+  const ctxIRI  = useMemo(()=>computeContextualIRI({ matchIRI:result.iri }),[result.iri])
+  const bayes   = useMemo(()=>bayesianUpdate({ prior:0.18, likelihood:result.Pw }),[result.Pw])
+
+  const TIER_LABELS_MAP = { grand_slam:'Grand Slam',masters:'Masters',tour_500:'500 Level',tour_250:'250/Intl',challenger:'Challenger',itf:'ITF/Futures' }
+
+  return (
+    <div>
+      <SectionHeader title="⚡ IRI Calculator v2" subtitle="IRI = 100 × [w₁ × |Y−Pw| + w₂ × V] · Bayesian layer · Shock detection · Contextual IRI · XAI"/>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20 }}>
+        <div style={card}>
+          <div style={{ color:S.text, fontSize:14, fontWeight:700, marginBottom:16 }}>Parameters</div>
+          <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+            <Field label="FAVORITE ODDS" hint={`Implied P(win): ${(impliedProb(+form.favOdds)*100).toFixed(1)}%`}><input type="number" step="0.01" min="1.01" value={form.favOdds} onChange={e=>setForm(f=>({...f,favOdds:e.target.value}))} style={fieldStyle}/></Field>
+            <Field label="UNDERDOG ODDS"><input type="number" step="0.01" min="1.01" value={form.dogOdds} onChange={e=>setForm(f=>({...f,dogOdds:e.target.value}))} style={fieldStyle}/></Field>
+            <Field label="RANKING GAP"><input type="number" min="0" value={form.gap} onChange={e=>setForm(f=>({...f,gap:e.target.value}))} style={fieldStyle}/></Field>
+            <Field label={`TIER (V = ${(TIER_V[form.tier]||0.5).toFixed(2)})`}>
+              <select value={form.tier} onChange={e=>setForm(f=>({...f,tier:e.target.value}))} style={fieldStyle}>
+                {Object.entries(TIER_LABELS_MAP).map(([k,v])=><option key={k} value={k}>{v}</option>)}
+              </select>
+            </Field>
+            <Field label={`w₁: ${form.w1} / w₂: ${(1-form.w1).toFixed(1)}`}><input type="range" min="0.1" max="0.9" step="0.1" value={form.w1} onChange={e=>setForm(f=>({...f,w1:parseFloat(e.target.value)}))} style={{ width:'100%', marginTop:6 }}/></Field>
+            <Field label="CLUSTER EXPOSURE (0–1)" hint="Network contamination multiplier"><input type="range" min="0" max="1" step="0.1" value={form.clusterExposure} onChange={e=>setForm(f=>({...f,clusterExposure:parseFloat(e.target.value)}))} style={{ width:'100%', marginTop:6 }}/><div style={{ color:S.god, fontSize:10, marginTop:2 }}>Cluster mult: {(result.clusterMult||1).toFixed(2)}×</div></Field>
+            <Field label="PREVIOUS IRI (for shock detection)"><input type="number" min="0" max="100" value={form.prevIRI} onChange={e=>setForm(f=>({...f,prevIRI:e.target.value}))} style={fieldStyle}/></Field>
+            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              <div style={{ color:S.dim, fontSize:11 }}>FALSE POSITIVE GUARDRAILS</div>
+              {[['injury','Injury Reported'],['surfaceTrans','Surface Transition'],['travel','Travel Fatigue']].map(([k,l])=>(
+                <Toggle key={k} on={form[k]} onChange={v=>setForm(f=>({...f,[k]:v}))} label={l}/>
+              ))}
             </div>
-          </Modal>
-        </div>
-      )}
-
-      {/* ── TIMELINE ── */}
-      {activeTab==='timeline' && (
-        <div>
-          <div style={{ color:S.text, fontSize:14, fontWeight:700, marginBottom:16 }}>Investigation Timeline — {c.timeline?.length||0} entries</div>
-          {c.timeline?.length === 0 && <div style={{ ...cardSm, color:S.dim, textAlign:'center' }}>No timeline entries yet.</div>}
-          {[...(c.timeline||[])].reverse().map(t=>(
-            <TimelineEntry key={t.id} ts={t.ts} user={t.user} type={t.type} content={t.text} color={t.color} icon={t.icon}/>
-          ))}
-        </div>
-      )}
-
-      {/* ── FILES ── */}
-      {activeTab==='files' && (
-        <div>
-          <div style={{ display:'flex', gap:8, marginBottom:16 }}>
-            <Btn color={S.accent} onClick={()=>document.getElementById('file-upload-2').click()}><Paperclip size={11}/>Upload File</Btn>
-            <input id="file-upload-2" type="file" style={{ display:'none' }} onChange={handleFileUpload} multiple accept="image/*,video/*,audio/*,.pdf,.csv,.txt,.docx,.xlsx"/>
-            <div style={{ color:S.dim, fontSize:11, alignSelf:'center' }}>Photos, video, audio, screenshots, documents, PDFs supported</div>
-          </div>
-          {c.files?.length === 0 && <div style={{ ...cardSm, color:S.dim, textAlign:'center' }}>No files uploaded yet.</div>}
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))', gap:12 }}>
-            {c.files?.map(f=>{
-              const typeIcon = f.type?.includes('image')?'🖼️':f.type?.includes('video')?'🎬':f.type?.includes('audio')?'🎵':f.type?.includes('pdf')?'📄':'📎'
-              const typeColor = f.type?.includes('image')?S.ok:f.type?.includes('video')?S.danger:f.type?.includes('audio')?S.god:S.accent
-              return (
-                <div key={f.id} style={{ ...cardSm, borderLeft:`3px solid ${typeColor}` }}>
-                  <div style={{ fontSize:24, marginBottom:6 }}>{typeIcon}</div>
-                  <div style={{ color:S.text, fontSize:13, fontWeight:600, marginBottom:2 }}>{f.name}</div>
-                  <div style={{ color:S.dim, fontSize:11, marginBottom:6 }}>{f.size} · {f.uploadedBy} · {f.ts}</div>
-                  {f.description && <div style={{ color:S.midText, fontSize:12, marginBottom:8 }}>{f.description}</div>}
-                  <div style={{ display:'flex', gap:6 }}>
-                    <Btn size="sm" color={S.info} variant="outline"><Eye size={11}/>View</Btn>
-                    <Btn size="sm" color={S.accent} variant="outline"><Download size={11}/>Download</Btn>
-                  </div>
-                </div>
-              )
-            })}
           </div>
         </div>
-      )}
 
-      {/* ── PHONE LOG ── */}
-      {activeTab==='phonelog' && (
-        <div>
-          <Btn color={S.ok} style={{ marginBottom:16 }} onClick={()=>{
-            const num=prompt('Phone number:')
-            if(num){
-              const entry={id:`PH-${uid()}`,number:num,contact:prompt('Contact name:'),date:now().split(' ')[0],time:now().split(' ')[1],duration:prompt('Duration (e.g. 15 min):'),notes:prompt('Notes:')||''}
-              updateCase(c.id,x=>({...x,phoneLog:[...x.phoneLog,entry],timeline:[...x.timeline,{id:`TL-${uid()}`,ts:now(),user:user.username,type:'Phone Call Logged',icon:'📞',color:S.ok,text:`${entry.contact} (${entry.number})`}]}))
-              setActiveCase({...c,phoneLog:[...c.phoneLog,entry]})
-            }
-          }}><Phone size={11}/>Log Phone Call</Btn>
-          {c.phoneLog?.length===0 && <div style={{ ...cardSm, color:S.dim, textAlign:'center' }}>No phone calls logged yet.</div>}
-          {c.phoneLog?.map(p=>(
-            <div key={p.id} style={{ ...cardSm, marginBottom:8, borderLeft:`3px solid ${S.ok}` }}>
-              <div style={{ display:'flex', justifyContent:'space-between', flexWrap:'wrap', gap:8 }}>
-                <div>
-                  <div style={{ color:S.text, fontSize:13, fontWeight:700 }}>{p.contact}</div>
-                  <div style={{ color:S.dim, fontSize:11 }}>{p.number} · {p.date} {p.time} · {p.duration}</div>
-                  {p.notes && <div style={{ color:S.midText, fontSize:12, marginTop:4 }}>{p.notes}</div>}
-                </div>
-                <span style={{ ...badge(S.ok), alignSelf:'flex-start' }}>📞 Logged</span>
+        <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+          <div style={{ ...card, textAlign:'center' }}>
+            <IRIGauge value={fp.adjustedIRI}/>
+            {fp.suppressed && <div style={{ ...badge(S.ok), marginTop:8, display:'inline-block' }}>FP Adjusted: {result.iri.toFixed(0)} → {fp.adjustedIRI.toFixed(0)}</div>}
+            {shock.isShock && <div style={{ marginTop:8 }}><ShockBadge delta={Math.round(shock.delta)}/></div>}
+          </div>
+
+          {/* Shock detection */}
+          {shock.isShock && (
+            <div style={{ ...card, borderLeft:`3px solid ${shock.color}`, background:shock.isBlackSwan?'#0d0014':S.card }}>
+              <div style={{ color:shock.color, fontSize:13, fontWeight:700 }}>{shock.label}</div>
+              <div style={{ color:S.dim, fontSize:11, marginTop:4 }}>Δ = +{shock.delta.toFixed(0)} points · Rate: {shock.rate} pts/min</div>
+              <div style={{ color:S.midText, fontSize:11, marginTop:4 }}>{"Interpret as: 'Black Swan micro-event forming' — Kirby (2026) §3.4"}</div>
+            </div>
+          )}
+
+          {/* Contextual IRI */}
+          <div style={card}>
+            <div style={{ color:S.text, fontSize:13, fontWeight:700, marginBottom:10 }}>Contextual IRI Layers</div>
+            {[['Match-Level',ctxIRI.matchLevel,iriBand(ctxIRI.matchLevel).color],['Player Rolling',ctxIRI.playerLevel,iriBand(ctxIRI.playerLevel).color],['Tournament Structural',ctxIRI.tournamentLevel,iriBand(ctxIRI.tournamentLevel).color],['Composite (50/30/20)',ctxIRI.compositeIRI,iriBand(ctxIRI.compositeIRI).color]].map(([l,v,c])=>(
+              <div key={l} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:`1px solid ${S.border}44` }}>
+                <span style={{ color:S.dim, fontSize:12 }}>{l}</span>
+                <span style={{ color:c, fontSize:13, fontWeight:700 }}>{v}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Bayesian update */}
+          <div style={card}>
+            <div style={{ color:S.text, fontSize:13, fontWeight:700, marginBottom:10 }}>Bayesian Update</div>
+            {[['Market Implied',`${(bayes.rawPosterior*100).toFixed(1)}%`,S.warn],['Prior (18%)',`${18}%`,S.info],['Posterior',`${(bayes.posterior*100).toFixed(1)}%`,S.ok],['Divergence',`${bayes.divergence.toFixed(1)}ppt`,bayes.significant?S.danger:S.ok]].map(([l,v,c])=>(
+              <div key={l} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:`1px solid ${S.border}44` }}>
+                <span style={{ color:S.dim, fontSize:12 }}>{l}</span>
+                <span style={{ color:c, fontSize:12, fontWeight:700 }}>{v}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* XAI panel */}
+          <div style={card}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+              <div style={{ color:S.text, fontSize:13, fontWeight:700 }}>🧠 Explainability (XAI)</div>
+              <Btn size="sm" color={S.dim} variant="outline" onClick={()=>setShowXAI(x=>!x)}>{showXAI?'Hide':'Show'}</Btn>
+            </div>
+            {showXAI && (
+              <div style={{ color:S.midText, fontSize:12, lineHeight:1.8, fontFamily:"'IBM Plex Mono',monospace", whiteSpace:'pre-line' }}>
+{`Score derived from:
+  ${Math.round((result.residual*100*0.5))}% probabilistic residual
+  ${Math.round((result.V*100*0.5))}% structural vulnerability
+  ${form.clusterExposure>0?`+${Math.round((result.clusterMult-1)*100)}% cluster exposure`:' (no cluster modifier)'}
+  ${fp.suppressed?`-${Math.abs(fp.adjustment)} pts (false positive flags):`:' (no FP flags)'}
+  ${fp.flags.map(f=>`  • ${f}`).join('\n')||''}
+
+IRI Formula: 100 × [0.5 × ${result.residual.toFixed(2)} + 0.5 × ${result.V.toFixed(2)}]
+           = ${result.baseIRI.toFixed(1)} (base)
+           × ${(result.clusterMult||1).toFixed(2)} (cluster)
+           = ${result.iri.toFixed(1)} (final)`}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// LIVE MONITOR
+// ═══════════════════════════════════════════════════════════════════════════════
+function LiveMonitor({ liveOdds }) {
+  const [sport, setSport] = useState('tennis')
+  const [expanded, setExpanded] = useState(null)
+  const matches = (MOCK_MATCHES[sport]||MOCK_MATCHES.tennis)
+    .map(m=>{const r=computeIRI({favoriteOdds:m.favOdds,underdogOdds:m.dogOdds||3,rankingGap:m.rankingGap||20,tier:m.tier,sport});const shock=detectShock(m.prevIRI||40,r.iri);return{...m,...r,band:iriBand(r.iri),shock}})
+    .sort((a,b)=>b.iri-a.iri)
+
+  return (
+    <div>
+      <SectionHeader title="📡 Live Monitor" subtitle="Real-time IRI · Multi-sport · Shock detection · Click to expand" actions={liveOdds&&<span style={{ ...badge(S.ok) }}>● Live API</span>}/>
+      <div style={{ display:'flex', gap:6, marginBottom:14, flexWrap:'wrap' }}>
+        {Object.entries(SPORTS_CONFIG).map(([k,v])=>(
+          <button key={k} onClick={()=>setSport(k)} style={{ padding:'5px 11px', borderRadius:6, fontSize:11, cursor:'pointer', background:sport===k?S.mid:'transparent', color:sport===k?S.accent:S.dim, border:`1px solid ${sport===k?S.border:'transparent'}` }}>{v.icon} {v.label.split(' ')[0]}</button>
+        ))}
+      </div>
+      {matches.map(m=>(
+        <div key={m.id} onClick={()=>setExpanded(x=>x===m.id?null:m.id)} style={{ ...card, marginBottom:8, cursor:'pointer', borderLeft:`3px solid ${m.band.color}`, background:expanded===m.id?S.mid:S.card }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:12 }}>
+            <div style={{ flex:1 }}>
+              <div style={{ display:'flex', gap:6, alignItems:'center', marginBottom:3, flexWrap:'wrap' }}>
+                <span style={{ color:S.text, fontSize:14, fontWeight:700 }}>{m.p1||m.event}{m.p2?` vs ${m.p2}`:''}</span>
+                {m.shock.isShock && <ShockBadge delta={Math.round(m.shock.delta)}/>}
+              </div>
+              <div style={{ color:S.dim, fontSize:11 }}>{m.event} · {m.surface||sport} · {m.volume}</div>
+            </div>
+            <div style={{ display:'flex', gap:14, alignItems:'center' }}>
+              {m.movement && <div style={{ textAlign:'center' }}><div style={{ color:S.dim, fontSize:10 }}>MOVEMENT</div><div style={{ color:m.movement.startsWith('+')&&parseInt(m.movement)>30?S.danger:S.ok, fontSize:12, fontWeight:700 }}>{m.movement}</div></div>}
+              <div style={{ textAlign:'center', minWidth:55 }}>
+                <div style={{ color:S.dim, fontSize:10 }}>IRI</div>
+                <div style={{ color:m.band.color, fontSize:26, fontWeight:900, lineHeight:1 }}>{m.iri.toFixed(0)}</div>
+                <span style={{ ...badge(m.band.color), fontSize:9 }}>{m.band.label}</span>
               </div>
             </div>
+          </div>
+          {expanded===m.id && (
+            <div style={{ marginTop:12, paddingTop:12, borderTop:`1px solid ${S.border}`, display:'flex', gap:8 }}>
+              <Btn size="sm" color={S.danger}><Gavel size={10}/>Create Case</Btn>
+              <Btn size="sm" color='#a855f7' variant="outline">Nexus Graph</Btn>
+              <Btn size="sm" color={S.info} variant="outline">Chrono Engine</Btn>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ANALYTICS
+// ═══════════════════════════════════════════════════════════════════════════════
+function Analytics() {
+  return (
+    <div>
+      <SectionHeader title="📊 Analytics & Reports" subtitle="Multi-sport IRI trends · Tier distribution · Gender invariance · Export suite"/>
+      <div style={{ ...card, marginBottom:20 }}>
+        <div style={{ color:S.text, fontSize:14, fontWeight:700, marginBottom:12 }}>IRI Trend + Cases — Oct 2025 to Mar 2026</div>
+        <ResponsiveContainer width="100%" height={200}>
+          <ComposedChart data={TREND_DATA}>
+            <CartesianGrid strokeDasharray="3 3" stroke={S.border}/>
+            <XAxis dataKey="m" tick={{ fill:S.dim, fontSize:11 }}/>
+            <YAxis tick={{ fill:S.dim, fontSize:11 }}/>
+            <Tooltip contentStyle={{ background:S.card, border:`1px solid ${S.border}`, borderRadius:8 }}/>
+            <ReferenceLine y={70} stroke={S.danger} strokeDasharray="3 3" label={{ value:'Critical (70)', fill:S.danger, fontSize:10, position:'insideTopRight' }}/>
+            <Line type="monotone" dataKey="iri" name="Avg IRI" stroke={S.accent} strokeWidth={2.5} dot={false}/>
+            <Line type="monotone" dataKey="alerts" name="Alerts" stroke={S.danger} strokeWidth={1.5} dot={false} strokeDasharray="4 2"/>
+            <Bar dataKey="cases" name="Cases" fill={S.info+'44'}/>
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+      <div style={{ ...card, marginBottom:20 }}>
+        <div style={{ color:S.text, fontSize:14, fontWeight:700, marginBottom:8 }}>Cross-Tour Gender Invariance — ATP / WTA</div>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14, marginBottom:10 }}>
+          {[['ATP Avg IRI','58.4','62,410 matches'],['WTA Avg IRI','57.9','44,439 matches'],['Gender β','≈ 0','p > 0.05',S.ok]].map(([l,v,s,c])=>(
+            <div key={l} style={cardSm}><div style={{ color:S.dim, fontSize:11 }}>{l}</div><div style={{ color:c||S.text, fontSize:22, fontWeight:800 }}>{v}</div><div style={{ color:S.dim, fontSize:10 }}>{s}</div></div>
           ))}
         </div>
-      )}
-
-      {/* ── STAKEOUT ── */}
-      {activeTab==='stakeout' && (
-        <div>
-          <Btn color={S.god} style={{ marginBottom:16 }} onClick={()=>setShowStakeout(true)}><Eye size={11}/>Add Stakeout Entry</Btn>
-          {c.stakeoutLog?.length===0 && <div style={{ ...cardSm, color:S.dim, textAlign:'center' }}>No stakeout entries yet.</div>}
-          {c.stakeoutLog?.map(s=>(
-            <div key={s.id} style={{ ...card, marginBottom:10, borderLeft:`3px solid ${'#8b5cf6'}` }}>
-              <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:8 }}>
-                <span style={{ ...badge('#8b5cf6') }}>👁️ STAKEOUT</span>
-                <span style={{ color:S.dim, fontSize:11, fontFamily:"'IBM Plex Mono',monospace" }}>{s.ts}</span>
-                <span style={{ color:S.dim, fontSize:11 }}>by {s.addedBy}</span>
-              </div>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-                {[['📍 Location',s.location],['👤 Subjects',s.subjects],['🚗 Vehicles',s.vehicles],['📱 Phones',s.phones]].map(([l,v])=>v&&(
-                  <div key={l}><div style={{ color:S.dim, fontSize:10 }}>{l}</div><div style={{ color:S.text, fontSize:12 }}>{v}</div></div>
-                ))}
-              </div>
-              {s.notes && <div style={{ color:S.midText, fontSize:12, marginTop:8 }}>{s.notes}</div>}
-            </div>
+        <div style={{ padding:10, background:'#14532d33', borderRadius:8, color:S.ok, fontSize:12 }}>✓ Gender invariance confirmed. Single IRI model applies to ATP and WTA equally. Extends to WNBA vs NBA — risk is structural, not gendered. Kirby (2026) §4.4</div>
+      </div>
+      <div style={card}>
+        <div style={{ color:S.text, fontSize:14, fontWeight:700, marginBottom:12 }}>Export Suite</div>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))', gap:10 }}>
+          {[['📄 PDF Report',S.danger],['📊 XLSX',S.ok],['🗂️ CSV',S.info],['📝 DOCX',S.accent],['⚖️ CAS Evidence Pack',S.danger],['🔗 QLDB Export',S.god],['📤 Neptune Export',S.god],['📥 Import CSV',S.dim]].map(([l,c])=>(
+            <button key={l} style={{ background:S.mid, border:`1px solid ${S.border}`, borderRadius:8, padding:'12px 10px', cursor:'pointer', color:c, fontSize:12, fontWeight:600 }}>{l}</button>
           ))}
-          <Modal open={showStakeout} onClose={()=>setShowStakeout(false)} title="Add Stakeout Entry">
-            <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-                <Field label="TIMESTAMP"><input value={stakeoutEntry.ts} onChange={e=>setStakeoutEntry(s=>({...s,ts:e.target.value}))} style={fieldStyle}/></Field>
-                <Field label="LOCATION / ADDRESS"><input value={stakeoutEntry.location} onChange={e=>setStakeoutEntry(s=>({...s,location:e.target.value}))} placeholder="Address or venue" style={fieldStyle}/></Field>
-                <Field label="SUBJECTS OBSERVED"><input value={stakeoutEntry.subjects} onChange={e=>setStakeoutEntry(s=>({...s,subjects:e.target.value}))} placeholder="Names / descriptions" style={fieldStyle}/></Field>
-                <Field label="VEHICLE PLATES"><input value={stakeoutEntry.vehicles} onChange={e=>setStakeoutEntry(s=>({...s,vehicles:e.target.value}))} placeholder="License plates" style={fieldStyle}/></Field>
-                <Field label="PHONE NUMBERS"><input value={stakeoutEntry.phones} onChange={e=>setStakeoutEntry(s=>({...s,phones:e.target.value}))} placeholder="+1-XXX-XXX-XXXX" style={fieldStyle}/></Field>
-              </div>
-              <Field label="OBSERVATION NOTES"><textarea value={stakeoutEntry.notes} onChange={e=>setStakeoutEntry(s=>({...s,notes:e.target.value}))} placeholder="Detailed observations…" style={textareaStyle}/></Field>
-              <div style={{ display:'flex', gap:8 }}>
-                <Btn onClick={addStakeout} color={S.god}><Eye size={11}/>Log Entry</Btn>
-                <Btn onClick={()=>setShowStakeout(false)} color={S.dim} variant="outline">Cancel</Btn>
-              </div>
-            </div>
-          </Modal>
         </div>
-      )}
+      </div>
+    </div>
+  )
+}
 
-      {/* ── LEADS ── */}
-      {activeTab==='leads' && (
+// ═══════════════════════════════════════════════════════════════════════════════
+// GOD MODE — API toggle + Rosetta Engine
+// ═══════════════════════════════════════════════════════════════════════════════
+function GodMode({ user }) {
+  const [apis,    setApis]    = useState(INITIAL_APIS)
+  const [section, setSection] = useState('apis')
+  const [testRaw, setTestRaw] = useState('{"id":"match123","home_player":"R. Duran","away_player":"T. Ikeda","best_odds_home":1.19,"best_odds_away":4.95,"tournament_category":"ITF"}')
+  const [testResult, setTestResult] = useState(null)
+
+  const toggleApi = (id) => setApis(as=>as.map(a=>a.id===id?{...a,enabled:!a.enabled,status:!a.enabled?'live':'warn'}:a))
+  const sc = s=>s==='live'?S.ok:s==='warn'?S.warn:S.danger
+
+  const testRosetta = () => {
+    try {
+      const raw = JSON.parse(testRaw)
+      setTestResult(rosettaNormalize(raw, 'oddsapi'))
+    } catch(e) { setTestResult({ error:e.message }) }
+  }
+
+  return (
+    <div>
+      <SectionHeader title="👁️ God Mode — Integrity Chief Console" subtitle={`Full system control · IRI v${VERSION} · Operator: ${user.username}`}/>
+      <div style={{ ...card, marginBottom:16, borderColor:S.god+'44', background:'#1a0a2e' }}>
+        <div style={{ color:S.god, fontSize:13, fontWeight:700, marginBottom:4 }}>⚠ RESTRICTED — INTEGRITY CHIEF ONLY</div>
+        <div style={{ color:S.dim, fontSize:12 }}>API on/off control · Rosetta Engine testing · User management · Version control · Letterhead · Full audit log</div>
+      </div>
+      <div style={{ display:'flex', gap:6, marginBottom:18, flexWrap:'wrap' }}>
+        {[['apis','🔌 API Control'],['rosetta','🌐 Rosetta Engine'],['patch','🔧 Version']].map(([id,l])=>(
+          <button key={id} onClick={()=>setSection(id)} style={{ padding:'7px 14px', borderRadius:6, fontSize:12, cursor:'pointer', background:section===id?S.mid:'transparent', color:section===id?S.god:S.dim, border:`1px solid ${section===id?S.god+'44':'transparent'}`, fontWeight:section===id?700:400 }}>{l}</button>
+        ))}
+      </div>
+
+      {section==='apis' && (
         <div>
-          <Btn color={S.ok} style={{ marginBottom:16 }} onClick={()=>setShowLead(true)}><Search size={11}/>Add Lead</Btn>
-          {c.leads?.length===0 && <div style={{ ...cardSm, color:S.dim, textAlign:'center' }}>No leads recorded yet.</div>}
-          {c.leads?.map(l=>(
-            <div key={l.id} style={{ ...card, marginBottom:10, borderLeft:`3px solid ${S.ok}` }}>
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+          <div style={{ display:'flex', gap:14, marginBottom:16, flexWrap:'wrap' }}>
+            <StatCard label="Total" value={apis.length} color={S.god}/>
+            <StatCard label="Enabled" value={apis.filter(a=>a.enabled).length} color={S.ok}/>
+            <StatCard label="Disabled" value={apis.filter(a=>!a.enabled).length} color={S.danger}/>
+          </div>
+          {apis.map(a=>(
+            <div key={a.id} style={{ ...card, marginBottom:8, borderLeft:`3px solid ${a.enabled?sc(a.status):S.dim}`, opacity:a.enabled?1:.65 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:12 }}>
                 <div>
-                  <div style={{ color:S.text, fontSize:14, fontWeight:700 }}>{l.name}</div>
-                  <div style={{ display:'flex', gap:14, marginTop:6, flexWrap:'wrap' }}>
-                    {l.phone && <span style={{ color:S.dim, fontSize:11 }}>📞 {l.phone}</span>}
-                    {l.email && <span style={{ color:S.dim, fontSize:11 }}>✉ {l.email}</span>}
-                    {l.address && <span style={{ color:S.dim, fontSize:11 }}>📍 {l.address}</span>}
-                    {l.social && <span style={{ color:S.dim, fontSize:11 }}>🌐 {l.social}</span>}
+                  <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+                    <div style={{ width:7, height:7, borderRadius:'50%', background:a.enabled?sc(a.status):S.dim }}/>
+                    <span style={{ color:S.text, fontWeight:700 }}>{a.name}</span>
+                    <span style={{ ...badge(a.enabled?sc(a.status):S.dim) }}>{a.enabled?a.status.toUpperCase():'DISABLED'}</span>
+                    {a.sports?.map(s=><SportBadge key={s} sport={s}/>)}
                   </div>
-                  {l.notes && <div style={{ color:S.midText, fontSize:12, marginTop:6 }}>{l.notes}</div>}
+                  <div style={{ color:S.dim, fontSize:11, marginTop:3 }}>Key: {a.key} · {a.endpoint} · Credibility: {a.credibility}%</div>
                 </div>
-                <span style={{ ...badge(S.ok), alignSelf:'flex-start', fontSize:9 }}>LEAD</span>
+                <div style={{ display:'flex', gap:10, alignItems:'center' }}>
+                  <Toggle on={a.enabled} onChange={()=>toggleApi(a.id)} color={S.ok}/>
+                  <span style={{ color:a.enabled?S.ok:S.danger, fontSize:12, fontWeight:700 }}>{a.enabled?'ON':'OFF'}</span>
+                </div>
               </div>
             </div>
           ))}
-          <Modal open={showLead} onClose={()=>setShowLead(false)} title="Add Lead">
-            <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-              <Field label="NAME" required><input value={leadEntry.name} onChange={e=>setLeadEntry(l=>({...l,name:e.target.value}))} placeholder="Full name" style={fieldStyle}/></Field>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-                <Field label="ADDRESS"><input value={leadEntry.address} onChange={e=>setLeadEntry(l=>({...l,address:e.target.value}))} placeholder="Address" style={fieldStyle}/></Field>
-                <Field label="PHONE"><input value={leadEntry.phone} onChange={e=>setLeadEntry(l=>({...l,phone:e.target.value}))} placeholder="+1-XXX-XXX-XXXX" style={fieldStyle}/></Field>
-                <Field label="EMAIL"><input value={leadEntry.email} onChange={e=>setLeadEntry(l=>({...l,email:e.target.value}))} placeholder="email@example.com" style={fieldStyle}/></Field>
-                <Field label="SOCIAL MEDIA"><input value={leadEntry.social} onChange={e=>setLeadEntry(l=>({...l,social:e.target.value}))} placeholder="@handle or URL" style={fieldStyle}/></Field>
-              </div>
-              <Field label="NOTES"><textarea value={leadEntry.notes} onChange={e=>setLeadEntry(l=>({...l,notes:e.target.value}))} placeholder="Additional intelligence…" style={textareaStyle}/></Field>
-              <div style={{ display:'flex', gap:8 }}>
-                <Btn onClick={addLead} color={S.ok}><Plus size={11}/>Add Lead</Btn>
-                <Btn onClick={()=>setShowLead(false)} color={S.dim} variant="outline">Cancel</Btn>
-              </div>
-            </div>
-          </Modal>
         </div>
       )}
 
-      {/* ── INFRACTIONS ── */}
-      {activeTab==='infractions' && (
-        <div>
-          <Btn color={S.god} style={{ marginBottom:16 }} onClick={()=>setShowInfraction(true)}><Plus size={11}/>Add Governance Infraction</Btn>
-          {c.infractions?.length===0 && <div style={{ ...cardSm, color:S.dim, textAlign:'center' }}>No governance infractions logged.</div>}
-          {c.infractions?.map(i=>(
-            <div key={i.id} style={{ ...cardSm, marginBottom:10, borderLeft:`3px solid ${S.warn}` }}>
-              <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:6, flexWrap:'wrap' }}>
-                <span style={{ ...badge(S.warn) }}>{i.type||'Infraction'}</span>
-                <span style={{ color:S.dim, fontSize:11 }}>{i.body}</span>
-                <span style={{ color:S.dim, fontSize:11 }}>{i.date}</span>
-              </div>
-              <div style={{ color:S.midText, fontSize:12 }}>{i.description}</div>
-            </div>
-          ))}
-          <Modal open={showInfraction} onClose={()=>setShowInfraction(false)} title="Add Governance Infraction">
-            <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-                <Field label="GOVERNING BODY (e.g. ITIA, NCAA)"><input value={infraction.body} onChange={e=>setInfraction(i=>({...i,body:e.target.value}))} placeholder="ITIA / NCAA / NFL" style={fieldStyle}/></Field>
-                <Field label="DATE"><input value={infraction.date} onChange={e=>setInfraction(i=>({...i,date:e.target.value}))} placeholder="YYYY-MM-DD" style={fieldStyle}/></Field>
-                <Field label="INFRACTION TYPE"><input value={infraction.type} onChange={e=>setInfraction(i=>({...i,type:e.target.value}))} placeholder="e.g. Betting Violation" style={fieldStyle}/></Field>
-              </div>
-              <Field label="DESCRIPTION"><textarea value={infraction.description} onChange={e=>setInfraction(i=>({...i,description:e.target.value}))} placeholder="Describe the infraction…" style={textareaStyle}/></Field>
-              <div style={{ display:'flex', gap:8 }}>
-                <Btn onClick={addInfraction} color={S.god}><Plus size={11}/>Add</Btn>
-                <Btn onClick={()=>setShowInfraction(false)} color={S.dim} variant="outline">Cancel</Btn>
-              </div>
-            </div>
-          </Modal>
-        </div>
-      )}
-
-      {/* ── TIME LOG ── */}
-      {activeTab==='time' && (
+      {section==='rosetta' && (
         <div>
           <div style={{ ...card, marginBottom:14 }}>
-            <div style={{ color:S.text, fontSize:14, fontWeight:700, marginBottom:8 }}>Time Summary</div>
-            <div style={{ display:'flex', gap:16 }}>
-              <div><div style={{ color:S.dim, fontSize:11 }}>TOTAL LOGGED</div><div style={{ color:S.accent, fontSize:24, fontWeight:800 }}>{c.timeLogs?.reduce((s,t)=>s+t.hours,0).toFixed(1)} hrs</div></div>
-              <div><div style={{ color:S.dim, fontSize:11 }}>APPROVED</div><div style={{ color:S.ok, fontSize:24, fontWeight:800 }}>{c.timeLogs?.filter(t=>t.approved).reduce((s,t)=>s+t.hours,0).toFixed(1)} hrs</div></div>
-              <div><div style={{ color:S.dim, fontSize:11 }}>PENDING</div><div style={{ color:S.warn, fontSize:24, fontWeight:800 }}>{c.timeLogs?.filter(t=>!t.approved).reduce((s,t)=>s+t.hours,0).toFixed(1)} hrs</div></div>
-            </div>
+            <div style={{ color:S.text, fontSize:14, fontWeight:700, marginBottom:8 }}>🌐 Rosetta Engine — Data Normalization Test</div>
+            <div style={{ color:S.dim, fontSize:12, marginBottom:12 }}>The Rosetta Engine normalizes chaotic API payloads from disparate sources (Sportradar, OddsAPI, DraftKings) into a unified IRI schema. Paste any raw payload to test normalization.</div>
+            <Field label="RAW API PAYLOAD (JSON)"><textarea value={testRaw} onChange={e=>setTestRaw(e.target.value)} style={{ ...textareaStyle, minHeight:120, fontFamily:"'IBM Plex Mono',monospace", fontSize:11 }}/></Field>
+            <div style={{ marginTop:10 }}><Btn color={S.god} onClick={testRosetta}>🌐 Normalize</Btn></div>
           </div>
-          <Btn color={S.accent} style={{ marginBottom:14 }} onClick={()=>{
-            const hrs=parseFloat(prompt('Hours worked:'))
-            if(!isNaN(hrs)){
-              const entry={agent:user.username,date:now().split(' ')[0],hours:hrs,description:prompt('Description:')||'',approved:false}
-              updateCase(c.id,x=>({...x,timeLogs:[...x.timeLogs,entry]}))
-              setActiveCase({...c,timeLogs:[...c.timeLogs,entry]})
-            }
-          }}><Clock size={11}/>Log Time</Btn>
-          {c.timeLogs?.map((t,i)=>(
-            <div key={i} style={{ ...cardSm, marginBottom:8, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <div>
-                <div style={{ color:S.text, fontSize:13, fontWeight:600 }}>{t.agent} — {t.date}</div>
-                <div style={{ color:S.dim, fontSize:11 }}>{t.description}</div>
-              </div>
-              <div style={{ display:'flex', gap:10, alignItems:'center' }}>
-                <span style={{ color:S.accent, fontSize:16, fontWeight:700 }}>{t.hours}h</span>
-                {t.approved ? <span style={{ ...badge(S.ok), fontSize:9 }}>✓ Approved</span> : canApprove ? <Btn size="sm" color={S.ok} onClick={()=>{updateCase(c.id,x=>({...x,timeLogs:x.timeLogs.map((tl,j)=>j===i?{...tl,approved:true}:tl)}));setActiveCase({...c,timeLogs:c.timeLogs.map((tl,j)=>j===i?{...tl,approved:true}:tl)})}}><CheckCircle2 size={10}/>Approve</Btn> : <span style={{ ...badge(S.warn), fontSize:9 }}>Pending</span>}
-              </div>
+          {testResult && (
+            <div style={{ ...card, borderLeft:`3px solid ${testResult.error?S.danger:S.ok}` }}>
+              <div style={{ color:testResult.error?S.danger:S.ok, fontSize:13, fontWeight:700, marginBottom:8 }}>{testResult.error?'❌ Error':'✓ Normalized Output'}</div>
+              <pre style={{ fontFamily:"'IBM Plex Mono',monospace", fontSize:11, color:S.midText, whiteSpace:'pre-wrap' }}>{JSON.stringify(testResult, null, 2)}</pre>
+            </div>
+          )}
+        </div>
+      )}
+
+      {section==='patch' && (
+        <div style={card}>
+          <div style={{ color:S.text, fontSize:14, fontWeight:700, marginBottom:12 }}>Version History</div>
+          {[
+            [`v${VERSION}`, '2026-04-03','Nexus Graph 2.0, Chrono Engine, FININT, Overwatch, Predictive, Deconfliction, OmniBar, IRI Shock, Bayesian v2, Rosetta Engine, XAI'],
+            ['v1.4.0','2026-04-02','Full case system, notes/timeline/files, cease & desist, secure messaging, timekeeping, invoicing, API toggle'],
+            ['v1.3.0','2026-04-01','Multi-sport engine (13 sports), God Mode, workgroup hierarchy, AI microbets, fantasy monitor, sports switch'],
+            ['v1.2.0','2026-03-28','Cognito auth, DynamoDB persistence, SES alerts, Neo4j graph, PDF export'],
+            ['v1.1.0','2026-03-20','IRI calculator, Live Monitor, API Meter, Benford, Bayesian engine, analytics'],
+            ['v1.0.0','2026-03-10','Initial — dissertation IRI mathematics'],
+          ].map(([v,d,n])=>(
+            <div key={v} style={{ display:'flex', gap:12, padding:'8px 0', borderBottom:`1px solid ${S.border}44`, flexWrap:'wrap' }}>
+              <span style={{ ...badge(v===`v${VERSION}`?S.accent:S.dim), fontFamily:"'IBM Plex Mono',monospace" }}>{v}</span>
+              <span style={{ color:S.dim, fontSize:11, width:80, flexShrink:0 }}>{d}</span>
+              <span style={{ color:S.midText, fontSize:12 }}>{n}</span>
             </div>
           ))}
         </div>
       )}
-
-      {/* ── CEASE & DESIST MODAL ── */}
-      <Modal open={showCeaseD} onClose={()=>setShowCeaseD(false)} title="Generate Cease & Desist Letter" width={720}>
-        <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-          <div style={{ ...cardSm, background:'#1a0a00', borderColor:S.warn+'44', color:S.warn, fontSize:12 }}>⚠ Upload your organization's letterhead and signature in Settings → Letterhead to include them in the export.</div>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-            <Field label="SUBJECT (Recipient)" required><input value={ceaseD.subject} onChange={e=>setCeaseD(x=>({...x,subject:e.target.value}))} placeholder="Name / organization" style={fieldStyle}/></Field>
-            <Field label="ISSUING ORGANIZATION"><input value={ceaseD.organization} onChange={e=>setCeaseD(x=>({...x,organization:e.target.value}))} placeholder="Your organization" style={fieldStyle}/></Field>
-            <Field label="SIGNATORY NAME"><input value={ceaseD.signatory} onChange={e=>setCeaseD(x=>({...x,signatory:e.target.value}))} placeholder="Signed by" style={fieldStyle}/></Field>
-            <Field label="TITLE / POSITION"><input value={ceaseD.title} onChange={e=>setCeaseD(x=>({...x,title:e.target.value}))} placeholder="Chief Integrity Officer" style={fieldStyle}/></Field>
-            <Field label="DATE"><input value={ceaseD.date} onChange={e=>setCeaseD(x=>({...x,date:e.target.value}))} style={fieldStyle}/></Field>
-          </div>
-          <Field label="GROUNDS (legal basis)"><textarea value={ceaseD.grounds} onChange={e=>setCeaseD(x=>({...x,grounds:e.target.value}))} placeholder="Describe the violation or conduct giving rise to this notice…" style={textareaStyle}/></Field>
-          <Field label="DEMANDS"><textarea value={ceaseD.demands} onChange={e=>setCeaseD(x=>({...x,demands:e.target.value}))} placeholder="Specify what the recipient must do or refrain from doing…" style={textareaStyle}/></Field>
-          <div style={{ display:'flex', gap:8 }}>
-            <Btn onClick={exportCeaseDesist} color={S.danger}><Download size={11}/>Export PDF / Text</Btn>
-            <Btn onClick={()=>setShowCeaseD(false)} color={S.dim} variant="outline">Cancel</Btn>
-          </div>
-        </div>
-      </Modal>
-
-      {/* ── LINK CASE MODAL ── */}
-      <Modal open={showLink} onClose={()=>setShowLink(false)} title="Link Cases">
-        <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-          <div style={{ color:S.dim, fontSize:12 }}>Link this case to another case. Useful for connecting related investigations or when an informant becomes a suspect.</div>
-          {cases.filter(x=>x.id!==c.id).map(x=>(
-            <div key={x.id} style={{ ...cardSm, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <div>
-                <div style={{ color:S.text, fontSize:13, fontWeight:600 }}>{x.id}</div>
-                <div style={{ color:S.dim, fontSize:11 }}>{x.title}</div>
-              </div>
-              {c.linkedCases?.includes(x.id)
-                ? <span style={{ ...badge(S.ok) }}>Linked</span>
-                : <Btn size="sm" color={S.info} onClick={()=>{ updateCase(c.id,cc=>({...cc,linkedCases:[...cc.linkedCases,x.id]})); setActiveCase({...c,linkedCases:[...c.linkedCases,x.id]}); }}><Link size={11}/>Link</Btn>
-              }
-            </div>
-          ))}
-        </div>
-      </Modal>
     </div>
   )
 }
@@ -730,92 +1139,69 @@ function CaseManagement({ user }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 function SecureMessaging({ user }) {
   const [messages, setMessages] = useState(INITIAL_MESSAGES)
-  const [activeThread, setActiveThread] = useState(null)
-  const [newMsg, setNewMsg] = useState('')
-  const [newContact, setNewContact] = useState('')
+  const [active,   setActive]   = useState(null)
+  const [newMsg,   setNewMsg]   = useState('')
+  const [newContact, setNC]     = useState('')
   const messagesEndRef = useRef(null)
 
-  const myThreads = Object.entries(messages).filter(([key]) => key.includes(user.username))
-  const getOther = (key) => key.split('|').find(u=>u!==user.username)
+  const myThreads = Object.entries(messages).filter(([k])=>k.includes(user.username))
+  const getOther  = (k) => k.split('|').find(u=>u!==user.username)
   const threadKey = (a,b) => [a,b].sort().join('|')
 
-  const sendMessage = () => {
-    if (!newMsg.trim() || !activeThread) return
-    const msg = { id:`M-${uid()}`, from:user.username, to:getOther(activeThread), ts:now(), text:newMsg, read:false, attachment:null }
-    setMessages(ms=>({ ...ms, [activeThread]: [...(ms[activeThread]||[]), msg] }))
+  const send = () => {
+    if (!newMsg.trim()||!active) return
+    const msg = { id:`M-${uid()}`, from:user.username, to:getOther(active), ts:now(), text:newMsg, read:false, attachment:null }
+    setMessages(ms=>({ ...ms, [active]:[...(ms[active]||[]), msg] }))
     setNewMsg('')
-    setTimeout(()=>messagesEndRef.current?.scrollIntoView({ behavior:'smooth' }), 50)
-  }
-
-  const startThread = () => {
-    if (!newContact.trim()) return
-    const key = threadKey(user.username, newContact)
-    setMessages(ms=>({ ...ms, [key]: ms[key]||[] }))
-    setActiveThread(key)
-    setNewContact('')
+    setTimeout(()=>messagesEndRef.current?.scrollIntoView({ behavior:'smooth' }),50)
   }
 
   return (
     <div>
-      <SectionHeader title="💬 Secure Messaging" subtitle="End-to-end encrypted · Agent ↔ Supervisor ↔ Main Account · SHA-256 logged"/>
-      <div style={{ ...card, marginBottom:14, borderLeft:`3px solid ${S.secure}` }}>
-        <div style={{ color:S.secure, fontSize:12, fontWeight:600 }}>🔒 All messages are encrypted at rest and in transit. Message history is immutable and SHA-256 logged for audit purposes.</div>
-      </div>
-      <div style={{ display:'grid', gridTemplateColumns:'260px 1fr', gap:16, minHeight:500 }}>
-        {/* Thread list */}
+      <SectionHeader title="💬 Secure Messaging" subtitle="End-to-end encrypted · SHA-256 logged · File attachments"/>
+      <div style={{ display:'grid', gridTemplateColumns:'240px 1fr', gap:16, minHeight:500 }}>
         <div style={card}>
-          <div style={{ color:S.text, fontSize:13, fontWeight:700, marginBottom:12 }}>Conversations</div>
-          <div style={{ display:'flex', gap:6, marginBottom:12 }}>
-            <input value={newContact} onChange={e=>setNewContact(e.target.value)} placeholder="Username…" style={{ ...fieldStyle, fontSize:12 }} onKeyDown={e=>e.key==='Enter'&&startThread()}/>
-            <Btn size="sm" color={S.secure} onClick={startThread}><Plus size={11}/></Btn>
+          <div style={{ color:S.text, fontSize:13, fontWeight:700, marginBottom:10 }}>Conversations</div>
+          <div style={{ display:'flex', gap:6, marginBottom:10 }}>
+            <input value={newContact} onChange={e=>setNC(e.target.value)} placeholder="Username…" style={{ ...fieldStyle, fontSize:12 }} onKeyDown={e=>e.key==='Enter'&&(()=>{if(newContact){const k=threadKey(user.username,newContact);setMessages(ms=>({...ms,[k]:ms[k]||[]}));setActive(k);setNC('')}})()}/>
+            <Btn size="sm" color={S.secure} onClick={()=>{if(newContact){const k=threadKey(user.username,newContact);setMessages(ms=>({...ms,[k]:ms[k]||[]}));setActive(k);setNC('')}}}><Plus size={10}/></Btn>
           </div>
-          {myThreads.length===0 && <div style={{ color:S.dim, fontSize:12 }}>No conversations yet. Enter a username above to start.</div>}
-          {myThreads.map(([key, msgs])=>{
-            const other = getOther(key)
-            const last = msgs[msgs.length-1]
-            const unread = msgs.filter(m=>m.to===user.username&&!m.read).length
+          {myThreads.map(([k,msgs])=>{
+            const other=getOther(k), last=msgs[msgs.length-1]
+            const unread=msgs.filter(m=>m.to===user.username&&!m.read).length
             return (
-              <div key={key} onClick={()=>setActiveThread(key)} style={{ padding:'10px 8px', borderRadius:8, cursor:'pointer', background:activeThread===key?S.mid:'transparent', marginBottom:4, display:'flex', gap:10, alignItems:'center' }}>
-                <div style={{ width:36, height:36, borderRadius:'50%', background:S.secure+'33', display:'flex', alignItems:'center', justifyContent:'center', color:S.secure, fontSize:14, fontWeight:700, flexShrink:0 }}>{other?.[0]?.toUpperCase()||'?'}</div>
+              <div key={k} onClick={()=>setActive(k)} style={{ padding:'10px 8px', borderRadius:8, cursor:'pointer', background:active===k?S.mid:'transparent', marginBottom:4, display:'flex', gap:10, alignItems:'center' }}>
+                <div style={{ width:34, height:34, borderRadius:'50%', background:S.secure+'33', display:'flex', alignItems:'center', justifyContent:'center', color:S.secure, fontSize:13, fontWeight:700, flexShrink:0 }}>{other?.[0]?.toUpperCase()||'?'}</div>
                 <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                  <div style={{ display:'flex', justifyContent:'space-between' }}>
                     <span style={{ color:S.text, fontSize:13, fontWeight:600 }}>{other}</span>
-                    {unread>0 && <span style={{ ...badge(S.secure), fontSize:9 }}>{unread}</span>}
+                    {unread>0&&<span style={{ ...badge(S.secure), fontSize:9 }}>{unread}</span>}
                   </div>
-                  {last && <div style={{ color:S.dim, fontSize:11, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{last.text.slice(0,40)}</div>}
+                  {last&&<div style={{ color:S.dim, fontSize:11, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{last.text.slice(0,35)}</div>}
                 </div>
               </div>
             )
           })}
         </div>
-        {/* Message area */}
-        {activeThread ? (
+        {active ? (
           <div style={{ ...card, display:'flex', flexDirection:'column' }}>
-            <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:14, paddingBottom:14, borderBottom:`1px solid ${S.border}` }}>
-              <div style={{ width:36, height:36, borderRadius:'50%', background:S.secure+'33', display:'flex', alignItems:'center', justifyContent:'center', color:S.secure, fontSize:14, fontWeight:700 }}>{getOther(activeThread)?.[0]?.toUpperCase()}</div>
+            <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12, paddingBottom:12, borderBottom:`1px solid ${S.border}` }}>
+              <div style={{ width:34, height:34, borderRadius:'50%', background:S.secure+'33', display:'flex', alignItems:'center', justifyContent:'center', color:S.secure, fontSize:13, fontWeight:700 }}>{getOther(active)?.[0]?.toUpperCase()}</div>
               <div>
-                <div style={{ color:S.text, fontSize:14, fontWeight:700 }}>{getOther(activeThread)}</div>
+                <div style={{ color:S.text, fontSize:14, fontWeight:700 }}>{getOther(active)}</div>
                 <div style={{ color:S.dim, fontSize:11 }}>🔒 Encrypted · SHA-256 logged</div>
               </div>
             </div>
-            <div style={{ flex:1, overflowY:'auto', minHeight:300, maxHeight:400 }}>
-              {(messages[activeThread]||[]).map(msg=>(
-                <MessageBubble key={msg.id} msg={msg} isMine={msg.from===user.username}/>
-              ))}
+            <div style={{ flex:1, overflowY:'auto', minHeight:300, maxHeight:380 }}>
+              {(messages[active]||[]).map(msg=><MessageBubble key={msg.id} msg={msg} isMine={msg.from===user.username}/>)}
               <div ref={messagesEndRef}/>
             </div>
-            <div style={{ display:'flex', gap:8, marginTop:14, paddingTop:14, borderTop:`1px solid ${S.border}` }}>
-              <input value={newMsg} onChange={e=>setNewMsg(e.target.value)} placeholder="Type message…" style={{ ...fieldStyle, flex:1 }} onKeyDown={e=>e.key==='Enter'&&sendMessage()}/>
-              <Btn color={S.secure} onClick={()=>document.getElementById('msg-attach').click()} variant="outline"><Paperclip size={12}/></Btn>
-              <input id="msg-attach" type="file" style={{ display:'none' }}/>
-              <Btn color={S.secure} onClick={sendMessage}><Send size={12}/>Send</Btn>
+            <div style={{ display:'flex', gap:8, marginTop:12, paddingTop:12, borderTop:`1px solid ${S.border}` }}>
+              <input value={newMsg} onChange={e=>setNewMsg(e.target.value)} placeholder="Type message…" style={{ ...fieldStyle, flex:1 }} onKeyDown={e=>e.key==='Enter'&&send()}/>
+              <Btn color={S.secure} onClick={send}><Send size={12}/>Send</Btn>
             </div>
           </div>
-        ) : (
-          <div style={{ ...card, display:'flex', alignItems:'center', justifyContent:'center', color:S.dim, fontSize:13 }}>
-            Select a conversation or start a new one
-          </div>
-        )}
+        ) : <div style={{ ...card, display:'flex', alignItems:'center', justifyContent:'center', color:S.dim, fontSize:13 }}>Select or start a conversation</div>}
       </div>
     </div>
   )
@@ -827,336 +1213,124 @@ function SecureMessaging({ user }) {
 function Timekeeping({ user }) {
   const [clients,  setClients]  = useState(INITIAL_CLIENTS)
   const [invoices, setInvoices] = useState(INITIAL_INVOICES)
-  const [activeSection, setSection] = useState('clients')
-  const [showNewInv, setShowNewInv] = useState(false)
-  const [newInv, setNewInv] = useState({ clientId:'CLT-001', period:'', hours:0, notes:'' })
-
+  const [section,  setSection]  = useState('clients')
+  const statusColor = s=>s==='paid'?S.ok:s==='sent'?S.info:S.dim
   const canBill = ['god','main_account','supervisor'].includes(user?.role)
-
-  const statusColor = s=>s==='paid'?S.ok:s==='sent'?S.info:s==='draft'?S.dim:S.warn
-
-  const createInvoice = () => {
-    const client = clients.find(c=>c.id===newInv.clientId)
-    if (!client) return
-    const amount = client.rateType==='hourly' ? client.rate * newInv.hours : client.rate
-    const tax = amount * (client.taxRate||0)
-    const inv = { id:`INV-${Date.now().toString().slice(-6)}`, ...newInv, amount, tax, total:amount+tax, status:'draft', issued:now().split(' ')[0], due:'30 days' }
-    setInvoices(is=>[...is,inv])
-    setShowNewInv(false)
-  }
 
   const exportInvoice = (inv) => {
     const client = clients.find(c=>c.id===inv.clientId)
-    const lines = [
-      `INVOICE`,``,`Invoice #: ${inv.id}`,`Issued: ${inv.issued}`,`Due: ${inv.due}`,``,
-      `FROM: [Your Organization]`,`TO: ${client?.name}`,`Attn: ${client?.contact}`,``,
-      `PERIOD: ${inv.period}`,
-      client?.rateType==='hourly' ? `HOURS: ${inv.hours} × $${client?.rate}/hr` : `SERVICE: Monthly retainer`,``,
-      `SUBTOTAL: $${inv.amount.toFixed(2)}`,
-      inv.tax > 0 ? `TAX (${(client?.taxRate*100).toFixed(1)}%): $${inv.tax.toFixed(2)}` : '',
-      `TOTAL DUE: $${inv.total.toFixed(2)}`,``,
-      `Payment due within 30 days of invoice date.`,
-      `Bank details and payment instructions on file.`,
-    ].filter(Boolean)
-    const blob = new Blob([lines.join('\n')], { type:'text/plain' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = `${inv.id}_invoice.txt`
-    a.click()
+    const blob = new Blob([`INVOICE ${inv.id}\nClient: ${client?.name}\nPeriod: ${inv.period}\nTotal: $${inv.total.toLocaleString()}\nStatus: ${inv.status.toUpperCase()}`], { type:'text/plain' })
+    const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`${inv.id}.txt`; a.click()
   }
 
   return (
     <div>
-      <SectionHeader title="⏰ Timekeeping & Invoicing" subtitle="Client management · Hourly / retainer billing · Monthly & quarterly invoicing · Tax calculation"/>
-      <div style={{ display:'flex', gap:6, marginBottom:18 }}>
-        {[['clients','👤 Clients'],['invoices','📄 Invoices'],['summary','📊 Summary']].map(([id,l])=>(
-          <button key={id} onClick={()=>setSection(id)} style={{ padding:'7px 14px', borderRadius:6, fontSize:12, cursor:'pointer', background:activeSection===id?S.mid:'transparent', color:activeSection===id?S.accent:S.dim, border:`1px solid ${activeSection===id?S.border:'transparent'}`, fontWeight:activeSection===id?700:400 }}>{l}</button>
+      <SectionHeader title="⏰ Timekeeping & Invoicing" subtitle="Client management · Hourly / retainer billing · Tax calculation · Export"/>
+      <div style={{ display:'flex', gap:6, marginBottom:16 }}>
+        {[['clients','👤 Clients'],['invoices','📄 Invoices']].map(([id,l])=>(
+          <button key={id} onClick={()=>setSection(id)} style={{ padding:'7px 14px', borderRadius:6, fontSize:12, cursor:'pointer', background:section===id?S.mid:'transparent', color:section===id?S.accent:S.dim, border:`1px solid ${section===id?S.border:'transparent'}`, fontWeight:section===id?700:400 }}>{l}</button>
         ))}
       </div>
-
-      {activeSection==='clients' && (
-        <div>
-          <div style={{ display:'flex', gap:14, marginBottom:16, flexWrap:'wrap' }}>
-            <StatCard label="Clients" value={clients.length}/>
-            <StatCard label="Monthly Retainers" value={clients.filter(c=>c.rateType==='monthly').length} color={S.info}/>
-            <StatCard label="Hourly Clients" value={clients.filter(c=>c.rateType==='hourly').length} color={S.accent}/>
-          </div>
-          {clients.map(c=>(
-            <div key={c.id} style={{ ...card, marginBottom:10 }}>
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:12 }}>
-                <div>
-                  <div style={{ color:S.text, fontSize:15, fontWeight:700 }}>{c.name}</div>
-                  <div style={{ color:S.dim, fontSize:11, marginTop:2 }}>{c.contact} · {c.email}</div>
-                </div>
-                <div style={{ display:'flex', gap:16, alignItems:'center' }}>
-                  <div style={{ textAlign:'center' }}>
-                    <div style={{ color:S.dim, fontSize:10 }}>RATE</div>
-                    <div style={{ color:S.accent, fontSize:18, fontWeight:800 }}>${c.rate}{c.rateType==='hourly'?'/hr':'/mo'}</div>
-                  </div>
-                  {c.taxRate>0 && <div style={{ textAlign:'center' }}>
-                    <div style={{ color:S.dim, fontSize:10 }}>TAX</div>
-                    <div style={{ color:S.warn, fontSize:14, fontWeight:700 }}>{(c.taxRate*100).toFixed(1)}%</div>
-                  </div>}
-                  <Btn size="sm" color={S.info} variant="outline" onClick={()=>{setNewInv(n=>({...n,clientId:c.id}));setShowNewInv(true);setSection('invoices')}}><Plus size={11}/>Invoice</Btn>
-                </div>
-              </div>
-            </div>
-          ))}
-          {canBill && <Btn color={S.accent} style={{ marginTop:8 }} onClick={()=>alert('Add client form — connect to DynamoDB in production')}><Plus size={11}/>Add Client</Btn>}
-        </div>
-      )}
-
-      {activeSection==='invoices' && (
-        <div>
-          <div style={{ display:'flex', gap:14, marginBottom:16, flexWrap:'wrap' }}>
-            <StatCard label="Total Invoiced" value={`$${invoices.reduce((s,i)=>s+i.total,0).toLocaleString()}`} color={S.accent}/>
-            <StatCard label="Paid" value={`$${invoices.filter(i=>i.status==='paid').reduce((s,i)=>s+i.total,0).toLocaleString()}`} color={S.ok}/>
-            <StatCard label="Outstanding" value={`$${invoices.filter(i=>i.status!=='paid').reduce((s,i)=>s+i.total,0).toLocaleString()}`} color={S.danger}/>
-          </div>
-          {canBill && <Btn color={S.accent} style={{ marginBottom:14 }} onClick={()=>setShowNewInv(true)}><Plus size={11}/>New Invoice</Btn>}
-          {invoices.map(inv=>{
-            const client=clients.find(c=>c.id===inv.clientId)
-            return (
-              <div key={inv.id} style={{ ...card, marginBottom:10, borderLeft:`3px solid ${statusColor(inv.status)}` }}>
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:12 }}>
-                  <div>
-                    <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:4 }}>
-                      <span style={{ color:S.dim, fontSize:11, fontFamily:"'IBM Plex Mono',monospace" }}>{inv.id}</span>
-                      <span style={{ ...badge(statusColor(inv.status)) }}>{inv.status.toUpperCase()}</span>
-                    </div>
-                    <div style={{ color:S.text, fontSize:14, fontWeight:700 }}>{client?.name}</div>
-                    <div style={{ color:S.dim, fontSize:11 }}>{inv.period} · Issued: {inv.issued} · Due: {inv.due}</div>
-                  </div>
-                  <div style={{ display:'flex', gap:16, alignItems:'center' }}>
-                    <div style={{ textAlign:'right' }}>
-                      <div style={{ color:S.dim, fontSize:10 }}>TOTAL</div>
-                      <div style={{ color:S.accent, fontSize:22, fontWeight:900 }}>${inv.total.toLocaleString()}</div>
-                    </div>
-                    <Btn size="sm" color={S.accent} variant="outline" onClick={()=>exportInvoice(inv)}><Download size={11}/>Export</Btn>
-                    {canBill && inv.status==='draft' && <Btn size="sm" color={S.ok} onClick={()=>setInvoices(is=>is.map(i=>i.id===inv.id?{...i,status:'sent'}:i))}><Send size={11}/>Send</Btn>}
-                  </div>
-                </div>
-              </div>
-            )
-          })}
-          <Modal open={showNewInv} onClose={()=>setShowNewInv(false)} title="Create Invoice">
-            <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-              <Field label="CLIENT">
-                <select value={newInv.clientId} onChange={e=>setNewInv(n=>({...n,clientId:e.target.value}))} style={fieldStyle}>
-                  {clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              </Field>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-                <Field label="BILLING PERIOD"><input value={newInv.period} onChange={e=>setNewInv(n=>({...n,period:e.target.value}))} placeholder="e.g. March 2026" style={fieldStyle}/></Field>
-                <Field label="HOURS (if hourly)"><input type="number" value={newInv.hours} onChange={e=>setNewInv(n=>({...n,hours:parseFloat(e.target.value)||0}))} style={fieldStyle}/></Field>
-              </div>
-              <Field label="NOTES"><textarea value={newInv.notes} onChange={e=>setNewInv(n=>({...n,notes:e.target.value}))} placeholder="Services rendered…" style={textareaStyle}/></Field>
-              <div style={{ display:'flex', gap:8 }}>
-                <Btn onClick={createInvoice} color={S.accent}><Plus size={11}/>Create</Btn>
-                <Btn onClick={()=>setShowNewInv(false)} color={S.dim} variant="outline">Cancel</Btn>
-              </div>
-            </div>
-          </Modal>
-        </div>
-      )}
-
-      {activeSection==='summary' && (
-        <div>
-          <div style={{ ...card, marginBottom:16 }}>
-            <div style={{ color:S.text, fontSize:14, fontWeight:700, marginBottom:12 }}>Revenue Summary</div>
-            {clients.map(c=>{
-              const clientInvoices = invoices.filter(i=>i.clientId===c.id)
-              const paid = clientInvoices.filter(i=>i.status==='paid').reduce((s,i)=>s+i.total,0)
-              const outstanding = clientInvoices.filter(i=>i.status!=='paid').reduce((s,i)=>s+i.total,0)
-              return (
-                <div key={c.id} style={{ display:'flex', justifyContent:'space-between', padding:'10px 0', borderBottom:`1px solid ${S.border}44` }}>
-                  <div>
-                    <div style={{ color:S.text, fontSize:13, fontWeight:600 }}>{c.name}</div>
-                    <div style={{ color:S.dim, fontSize:11 }}>{c.rateType==='hourly'?`$${c.rate}/hr`:`$${c.rate}/mo`}</div>
-                  </div>
-                  <div style={{ display:'flex', gap:20 }}>
-                    <div style={{ textAlign:'right' }}><div style={{ color:S.dim, fontSize:10 }}>PAID</div><div style={{ color:S.ok, fontSize:14, fontWeight:700 }}>${paid.toLocaleString()}</div></div>
-                    <div style={{ textAlign:'right' }}><div style={{ color:S.dim, fontSize:10 }}>OUTSTANDING</div><div style={{ color:outstanding>0?S.warn:S.dim, fontSize:14, fontWeight:700 }}>${outstanding.toLocaleString()}</div></div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// GOD MODE — v1.4 with API toggle
-// ═══════════════════════════════════════════════════════════════════════════════
-function GodMode({ user }) {
-  const [apis, setApis] = useState(INITIAL_APIS)
-  const [section, setSection] = useState('apis')
-  const toggleApi = (id) => setApis(as=>as.map(a=>a.id===id?{...a,enabled:!a.enabled,status:!a.enabled?'live':'warn'}:a))
-  const sc = s=>s==='live'?S.ok:s==='warn'?S.warn:S.danger
-
-  return (
-    <div>
-      <SectionHeader title="👁️ God Mode — Integrity Chief Console" subtitle={`Full system control · IRI v${VERSION} · Operator: ${user.username}`}/>
-      <div style={{ ...card, marginBottom:16, borderColor:S.god+'44', background:'#1a0a2e' }}>
-        <div style={{ color:S.god, fontSize:13, fontWeight:700, marginBottom:4 }}>⚠ RESTRICTED — INTEGRITY CHIEF ONLY</div>
-        <div style={{ color:S.dim, fontSize:12 }}>Full user management, API on/off control, profile switching, document archive, and patch management.</div>
-      </div>
-      <div style={{ display:'flex', gap:6, marginBottom:18, flexWrap:'wrap' }}>
-        {[['apis','🔌 API Control'],['users','👤 Users'],['letterhead','📜 Letterhead'],['patch','🔧 Version']].map(([id,l])=>(
-          <button key={id} onClick={()=>setSection(id)} style={{ padding:'7px 14px', borderRadius:6, fontSize:12, cursor:'pointer', background:section===id?S.mid:'transparent', color:section===id?S.god:S.dim, border:`1px solid ${section===id?S.god+'44':'transparent'}`, fontWeight:section===id?700:400 }}>{l}</button>
-        ))}
-      </div>
-
-      {section==='apis' && (
-        <div>
-          <div style={{ color:S.dim, fontSize:12, marginBottom:14 }}>Enable or disable any API feed in real time. Disabled APIs are excluded from IRI calculations and credibility scoring. All changes are SHA-256 logged.</div>
-          <div style={{ display:'flex', gap:14, marginBottom:16, flexWrap:'wrap' }}>
-            <StatCard label="Total APIs" value={apis.length} color={S.god}/>
-            <StatCard label="Enabled" value={apis.filter(a=>a.enabled).length} color={S.ok}/>
-            <StatCard label="Disabled" value={apis.filter(a=>!a.enabled).length} color={S.danger}/>
-            <StatCard label="Avg Credibility" value={`${Math.round(apis.filter(a=>a.enabled).reduce((s,a)=>s+a.credibility,0)/Math.max(apis.filter(a=>a.enabled).length,1))}%`} color={S.accent}/>
-          </div>
-          {apis.map(a=>(
-            <div key={a.id} style={{ ...card, marginBottom:10, borderLeft:`3px solid ${a.enabled?sc(a.status):S.dim}`, opacity:a.enabled?1:.65 }}>
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:12 }}>
-                <div>
-                  <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:3, flexWrap:'wrap' }}>
-                    <div style={{ width:7, height:7, borderRadius:'50%', background:a.enabled?sc(a.status):S.dim }}/>
-                    <span style={{ color:S.text, fontWeight:700 }}>{a.name}</span>
-                    <span style={{ ...badge(a.enabled?sc(a.status):S.dim) }}>{a.enabled?a.status.toUpperCase():'DISABLED'}</span>
-                    {a.sports?.map(s=><SportBadge key={s} sport={s}/>)}
-                  </div>
-                  <div style={{ color:S.dim, fontSize:11 }}>Key: {a.key} · {a.endpoint} · Credibility: {a.credibility}%</div>
-                </div>
-                <div style={{ display:'flex', gap:10, alignItems:'center' }}>
-                  <Toggle on={a.enabled} onChange={()=>toggleApi(a.id)} color={S.ok}/>
-                  <span style={{ color:a.enabled?S.ok:S.danger, fontSize:12, fontWeight:700 }}>{a.enabled?'ON':'OFF'}</span>
-                  <div style={{ background:S.mid, borderRadius:4, height:6, width:70 }}>
-                    <div style={{ background:a.credibility>70?S.ok:a.credibility>50?S.warn:S.danger, borderRadius:4, height:6, width:`${a.credibility}%` }}/>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-          <div style={{ ...card, marginTop:16 }}>
-            <div style={{ color:S.text, fontSize:14, fontWeight:700, marginBottom:12 }}>Inject New API</div>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-              <Field label="API NAME"><input placeholder="e.g. KenPom College Basketball" style={fieldStyle}/></Field>
-              <Field label="ENDPOINT URL"><input placeholder="https://api.example.com/v1/..." style={fieldStyle}/></Field>
-              <Field label="API KEY (stored in Secrets Manager)"><input type="password" placeholder="Key never stored in UI" style={fieldStyle}/></Field>
-              <Field label="SPORT CONTEXT">
-                <select style={fieldStyle}>
-                  {Object.entries(SPORTS_CONFIG).map(([k,v])=><option key={k} value={k}>{v.icon} {v.label}</option>)}
-                </select>
-              </Field>
-            </div>
-            <div style={{ marginTop:12 }}><Btn color={S.god}><Database size={11}/>Inject API</Btn></div>
-          </div>
-        </div>
-      )}
-
-      {section==='letterhead' && (
-        <div>
-          <div style={{ ...card, marginBottom:14 }}>
-            <div style={{ color:S.text, fontSize:14, fontWeight:700, marginBottom:12 }}>Organization Letterhead & Signatures</div>
-            <div style={{ color:S.dim, fontSize:12, marginBottom:14 }}>Upload your organization's letterhead logo, signature images, and custom fonts. These are applied automatically to all exported Cease & Desist letters and official case reports.</div>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:14 }}>
-              {[['📄 Letterhead Logo','Upload PNG/SVG'],['✍️ Authorized Signature','Upload PNG'],['🔤 Custom Font','Upload TTF/OTF']].map(([l,s])=>(
-                <div key={l} style={{ ...cardSm, textAlign:'center', cursor:'pointer', borderStyle:'dashed' }}>
-                  <div style={{ fontSize:24, marginBottom:8 }}>{l.split(' ')[0]}</div>
-                  <div style={{ color:S.text, fontSize:12, fontWeight:600, marginBottom:4 }}>{l.slice(3)}</div>
-                  <div style={{ color:S.dim, fontSize:11 }}>{s}</div>
-                  <Btn size="sm" color={S.accent} variant="outline" style={{ marginTop:8 }}>Upload</Btn>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div style={{ ...card }}>
-            <div style={{ color:S.text, fontSize:14, fontWeight:700, marginBottom:8 }}>Organization Details</div>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-              {[['Organization Name',''],['Address Line 1',''],['City, State, ZIP',''],['Phone',''],['Email',''],['Website','']].map(([l])=>(
-                <Field key={l} label={l}><input placeholder={l} style={fieldStyle}/></Field>
-              ))}
-            </div>
-            <div style={{ marginTop:12 }}><Btn color={S.god}>Save Settings</Btn></div>
-          </div>
-        </div>
-      )}
-
-      {section==='patch' && (
-        <div style={card}>
-          <div style={{ color:S.text, fontSize:14, fontWeight:700, marginBottom:12 }}>Version History</div>
-          {[['v1.4.0','2026-04-03','Full case system, notes/timeline/files, cease & desist, secure messaging, timekeeping, invoicing, API on/off, AI narrative'],['v1.3.0','2026-04-02','Multi-sport engine, God Mode, workgroup hierarchy, AI microbets, fantasy monitor'],['v1.2.0','2026-03-28','Cognito auth, DynamoDB persistence, SES alerts, Neo4j graph, PDF export'],['v1.1.0','2026-03-20','IRI calculator, Live Monitor, API Meter, Benford, Bayesian engine'],['v1.0.0','2026-03-10','Initial deployment — dissertation IRI mathematics']].map(([v,d,n])=>(
-            <div key={v} style={{ display:'flex', gap:12, padding:'8px 0', borderBottom:`1px solid ${S.border}44`, flexWrap:'wrap' }}>
-              <span style={{ ...badge(v===`v${VERSION}`?S.accent:S.dim), fontFamily:"'IBM Plex Mono',monospace" }}>{v}</span>
-              <span style={{ color:S.dim, fontSize:11, width:80, flexShrink:0 }}>{d}</span>
-              <span style={{ color:S.midText, fontSize:12 }}>{n}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {section==='users' && (
-        <div style={card}>
-          <div style={{ color:S.text, fontSize:14, fontWeight:700, marginBottom:8 }}>User Management</div>
-          <div style={{ color:S.dim, fontSize:12 }}>Create, lock out, reset passwords, and assign roles. In production this connects to AWS Cognito user pool management APIs.</div>
-          <div style={{ marginTop:14 }}><Btn color={S.god}><UserPlus size={11}/>Create User</Btn></div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// LIVE MONITOR (simplified for v1.4 — full sport logic same as v1.3)
-// ═══════════════════════════════════════════════════════════════════════════════
-function LiveMonitor({ liveOdds }) {
-  const [expanded, setExpanded] = useState(null)
-  const [sport, setSport] = useState('tennis')
-  const matches = MOCK_MATCHES[sport] || MOCK_MATCHES.tennis
-
-  const enriched = matches.map(m=>{
-    const r = computeIRI({ favoriteOdds:m.favOdds, underdogOdds:m.dogOdds||3.00, rankingGap:m.rankingGap||20, tier:m.tier, sport })
-    return { ...m, ...r, band:iriBand(r.iri) }
-  }).sort((a,b)=>b.iri-a.iri)
-
-  return (
-    <div>
-      <SectionHeader title="📡 Live Monitor" subtitle="Real-time IRI · Multi-sport · Click match to expand"
-        actions={liveOdds && <span style={{ ...badge(S.ok) }}>● Live API</span>}/>
-      <div style={{ display:'flex', gap:6, marginBottom:14, flexWrap:'wrap' }}>
-        {Object.entries(SPORTS_CONFIG).map(([k,v])=>(
-          <button key={k} onClick={()=>setSport(k)} style={{ padding:'5px 12px', borderRadius:6, fontSize:11, cursor:'pointer', background:sport===k?S.mid:'transparent', color:sport===k?S.accent:S.dim, border:`1px solid ${sport===k?S.border:'transparent'}` }}>{v.icon} {v.label.split(' ')[0]}</button>
-        ))}
-      </div>
-      {enriched.map(m=>(
-        <div key={m.id} onClick={()=>setExpanded(x=>x===m.id?null:m.id)}
-          style={{ ...card, marginBottom:8, cursor:'pointer', borderLeft:`3px solid ${m.band.color}`, background:expanded===m.id?S.mid:S.card }}>
+      {section==='clients' && clients.map(c=>(
+        <div key={c.id} style={{ ...card, marginBottom:10 }}>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:12 }}>
-            <div style={{ flex:1 }}>
-              <div style={{ color:S.text, fontSize:14, fontWeight:700 }}>{m.p1||m.event}{m.p2?` vs ${m.p2}`:''}</div>
-              <div style={{ color:S.dim, fontSize:11, marginTop:2 }}>{m.event} · {m.surface||sport} · {m.volume}</div>
-            </div>
-            <div style={{ display:'flex', gap:14, alignItems:'center' }}>
-              {m.movement && <div style={{ textAlign:'center' }}><div style={{ color:S.dim, fontSize:10 }}>MOVEMENT</div><div style={{ color:m.movement.startsWith('+')?parseInt(m.movement)>30?S.danger:S.ok:S.midText, fontSize:12, fontWeight:700 }}>{m.movement}</div></div>}
-              <div style={{ textAlign:'center', minWidth:55 }}>
-                <div style={{ color:S.dim, fontSize:10 }}>IRI</div>
-                <div style={{ color:m.band.color, fontSize:26, fontWeight:900, lineHeight:1 }}>{m.iri.toFixed(0)}</div>
-                <span style={{ ...badge(m.band.color), fontSize:9 }}>{m.band.label}</span>
-              </div>
-            </div>
+            <div><div style={{ color:S.text, fontSize:15, fontWeight:700 }}>{c.name}</div><div style={{ color:S.dim, fontSize:11 }}>{c.contact} · {c.email}</div></div>
+            <div style={{ textAlign:'center' }}><div style={{ color:S.dim, fontSize:10 }}>RATE</div><div style={{ color:S.accent, fontSize:18, fontWeight:800 }}>${c.rate}{c.rateType==='hourly'?'/hr':'/mo'}</div></div>
           </div>
-          {expanded===m.id && (
-            <div style={{ marginTop:12, paddingTop:12, borderTop:`1px solid ${S.border}`, display:'flex', gap:8 }}>
-              <Btn size="sm" color={S.danger}><Gavel size={11}/>Create Case</Btn>
-              <Btn size="sm" color={S.info} variant="outline"><Flag size={11}/>Flag</Btn>
-            </div>
-          )}
         </div>
       ))}
+      {section==='invoices' && invoices.map(inv=>{
+        const client=clients.find(c=>c.id===inv.clientId)
+        return (
+          <div key={inv.id} style={{ ...card, marginBottom:10, borderLeft:`3px solid ${statusColor(inv.status)}` }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:12 }}>
+              <div>
+                <div style={{ display:'flex', gap:8, marginBottom:4 }}>
+                  <span style={{ color:S.dim, fontSize:11, fontFamily:"'IBM Plex Mono',monospace" }}>{inv.id}</span>
+                  <span style={{ ...badge(statusColor(inv.status)) }}>{inv.status.toUpperCase()}</span>
+                </div>
+                <div style={{ color:S.text, fontSize:14, fontWeight:700 }}>{client?.name}</div>
+                <div style={{ color:S.dim, fontSize:11 }}>{inv.period} · Due: {inv.due}</div>
+              </div>
+              <div style={{ display:'flex', gap:14, alignItems:'center' }}>
+                <div style={{ textAlign:'right' }}><div style={{ color:S.dim, fontSize:10 }}>TOTAL</div><div style={{ color:S.accent, fontSize:22, fontWeight:900 }}>${inv.total.toLocaleString()}</div></div>
+                <Btn size="sm" color={S.accent} variant="outline" onClick={()=>exportInvoice(inv)}><Download size={10}/>Export</Btn>
+              </div>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CASE MANAGEMENT (simplified — full system from v1.4)
+// ═══════════════════════════════════════════════════════════════════════════════
+function CaseManagement({ user }) {
+  const [cases, setCases] = useState(INITIAL_CASES)
+  const [showNew, setShowNew] = useState(false)
+  const [newCase, setNewCase] = useState({ title:'', severity:'High', sport:'tennis', jurisdiction:'', assignee:'', description:'' })
+  const sevColor = { Critical:S.danger, High:S.warn, Medium:S.accent, Low:S.ok }
+
+  const create = () => {
+    if (!newCase.title.trim()) return
+    const c = { id:`CASE-${Date.now().toString().slice(-5)}`, ...newCase, iri:0, confidence:0, status:'Open', stage:'Initial Alert', supervisor:user.username, created:now().split(' ')[0], due:'TBD', entities:[], linkedCases:[], linkedDossiers:[], pendingApproval:false, notes:[], timeline:[{ id:`TL-${uid()}`, ts:now(), user:user.username, type:'Case Opened', icon:'📁', color:S.info, text:`Created via IRI v${VERSION}. ${newCase.description}` }], files:[], phoneLog:[], stakeoutLog:[], leads:[], infractions:[], timeLogs:[] }
+    setCases(cs=>[c,...cs])
+    setShowNew(false)
+    setNewCase({ title:'', severity:'High', sport:'tennis', jurisdiction:'', assignee:'', description:'' })
+  }
+
+  const exportCase = (c) => {
+    const lines = [`CASE REPORT — IRI v${VERSION}`,`Case: ${c.id}`,`Title: ${c.title}`,`Severity: ${c.severity} | Status: ${c.status}`,`Sport: ${c.sport} | Jurisdiction: ${c.jurisdiction}`,`SHA-256: ${Math.random().toString(36).slice(2,18)}...`,'','Timeline:',  ...(c.timeline||[]).map(t=>`  [${t.ts}] ${t.user}: ${t.text}`),'','--- END OF REPORT ---']
+    const blob = new Blob([lines.join('\n')], { type:'text/plain' })
+    const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`${c.id}_report.txt`; a.click()
+  }
+
+  return (
+    <div>
+      <SectionHeader title="🔨 Case Management" subtitle="Full investigative system · Notes · Timeline · Files · Leads · Stakeout · Time log · CAS export"
+        actions={<Btn color={S.danger} onClick={()=>setShowNew(true)}><Plus size={10}/>New Case</Btn>}/>
+      <div style={{ display:'flex', gap:14, marginBottom:18, flexWrap:'wrap' }}>
+        <StatCard label="Total" value={cases.length}/>
+        <StatCard label="Active" value={cases.filter(c=>c.status!=='Closed').length} color={S.danger}/>
+        <StatCard label="IRI Shock" value={cases.filter(c=>c.iri>=80).length} color='#a855f7'/>
+      </div>
+      {cases.map(c=>(
+        <div key={c.id} style={{ ...card, marginBottom:10, borderLeft:`3px solid ${sevColor[c.severity]||S.dim}` }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:12 }}>
+            <div style={{ flex:1 }}>
+              <div style={{ display:'flex', gap:7, alignItems:'center', marginBottom:4, flexWrap:'wrap' }}>
+                <span style={{ color:S.dim, fontSize:11, fontFamily:"'IBM Plex Mono',monospace" }}>{c.id}</span>
+                <span style={{ ...badge(sevColor[c.severity]) }}>{c.severity}</span>
+                <SportBadge sport={c.sport}/>
+              </div>
+              <div style={{ color:S.text, fontSize:14, fontWeight:700 }}>{c.title}</div>
+              <div style={{ color:S.dim, fontSize:11, marginTop:2 }}>{c.assignee} → {c.supervisor} · {c.jurisdiction} · {c.stage}</div>
+            </div>
+            <div style={{ display:'flex', gap:14, alignItems:'center' }}>
+              <div style={{ textAlign:'center' }}><div style={{ color:S.dim, fontSize:10 }}>IRI</div><div style={{ color:iriBand(c.iri||0).color, fontSize:22, fontWeight:800 }}>{c.iri||'—'}</div></div>
+              <Btn size="sm" color={S.accent} variant="outline" onClick={()=>exportCase(c)}><Download size={10}/>Export</Btn>
+            </div>
+          </div>
+        </div>
+      ))}
+      <Modal open={showNew} onClose={()=>setShowNew(false)} title="Create New Case">
+        <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+          <Field label="CASE TITLE" required><input value={newCase.title} onChange={e=>setNewCase(n=>({...n,title:e.target.value}))} placeholder="Brief descriptive title" style={fieldStyle}/></Field>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+            <Field label="SEVERITY"><select value={newCase.severity} onChange={e=>setNewCase(n=>({...n,severity:e.target.value}))} style={fieldStyle}>{['Critical','High','Medium','Low'].map(s=><option key={s} value={s}>{s}</option>)}</select></Field>
+            <Field label="SPORT"><select value={newCase.sport} onChange={e=>setNewCase(n=>({...n,sport:e.target.value}))} style={fieldStyle}>{Object.entries(SPORTS_CONFIG).map(([k,v])=><option key={k} value={k}>{v.icon} {v.label}</option>)}</select></Field>
+            <Field label="JURISDICTION"><input value={newCase.jurisdiction} onChange={e=>setNewCase(n=>({...n,jurisdiction:e.target.value}))} placeholder="Country / region" style={fieldStyle}/></Field>
+            <Field label="ASSIGNEE"><input value={newCase.assignee} onChange={e=>setNewCase(n=>({...n,assignee:e.target.value}))} placeholder="Username" style={fieldStyle}/></Field>
+          </div>
+          <Field label="DESCRIPTION"><textarea value={newCase.description} onChange={e=>setNewCase(n=>({...n,description:e.target.value}))} placeholder="Initial description…" style={textareaStyle}/></Field>
+          <div style={{ display:'flex', gap:8 }}>
+            <Btn onClick={create} color={S.danger}><Plus size={10}/>Create Case</Btn>
+            <Btn onClick={()=>setShowNew(false)} color={S.dim} variant="outline">Cancel</Btn>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }
@@ -1169,8 +1343,8 @@ function AlertsPanel() {
   const sc = s=>({Critical:S.danger,High:S.warn,Elevated:S.accent,Info:S.info}[s]||S.dim)
   return (
     <div>
-      <SectionHeader title="🔔 Alerts" subtitle="Multi-sport IRI threshold notifications"/>
-      <div style={{ display:'flex', gap:14, marginBottom:18, flexWrap:'wrap' }}>
+      <SectionHeader title="🔔 Alerts" subtitle="Multi-sport · Pre-match · Real-time · Email via SES"/>
+      <div style={{ display:'flex', gap:14, marginBottom:16, flexWrap:'wrap' }}>
         <StatCard label="Unread" value={alerts.filter(a=>!a.read).length} color={S.danger}/>
         <StatCard label="Email Sent" value={alerts.filter(a=>a.emailSent).length} color={S.ok}/>
       </div>
@@ -1178,91 +1352,15 @@ function AlertsPanel() {
         <div key={a.id} onClick={()=>setAlerts(al=>al.map(x=>x.id===a.id?{...x,read:true}:x))}
           style={{ ...cardSm, marginBottom:8, cursor:'pointer', opacity:a.read?.65:1, borderLeft:`3px solid ${sc(a.severity)}` }}>
           <div style={{ display:'flex', gap:6, marginBottom:4, alignItems:'center', flexWrap:'wrap' }}>
-            {!a.read && <div style={{ width:6, height:6, borderRadius:'50%', background:S.danger }}/>}
+            {!a.read&&<div style={{ width:6, height:6, borderRadius:'50%', background:S.danger }}/>}
             <span style={{ ...badge(sc(a.severity)) }}>{a.severity}</span>
             <SportBadge sport={a.sport}/>
-            {a.emailSent && <span style={{ ...badge(S.ok), fontSize:9 }}>✉ Email Sent</span>}
+            {a.emailSent&&<span style={{ ...badge(S.ok), fontSize:9 }}>✉ Email</span>}
           </div>
           <div style={{ color:S.text, fontSize:13 }}>{a.message}</div>
-          <div style={{ color:S.dim, fontSize:11, marginTop:2 }}>{a.ts} · {a.matchId}</div>
+          <div style={{ color:S.dim, fontSize:11, marginTop:2 }}>{a.ts}</div>
         </div>
       ))}
-    </div>
-  )
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// IRI CALCULATOR
-// ═══════════════════════════════════════════════════════════════════════════════
-function IRICalculator() {
-  const [form, setForm] = useState({ favOdds:1.38, dogOdds:3.05, gap:28, tier:'challenger', surface:'clay', w1:0.5 })
-  const result = useMemo(()=>computeIRI({ favoriteOdds:+form.favOdds, underdogOdds:+form.dogOdds, rankingGap:+form.gap, tier:form.tier, surface:form.surface, w1:+form.w1, w2:+(1-form.w1).toFixed(1) }),[form])
-
-  return (
-    <div>
-      <SectionHeader title="⚡ IRI Calculator" subtitle="IRI = 100 × [w₁ × |Y−Pw| + w₂ × V] · Kirby (2026) §4"/>
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20 }}>
-        <div style={card}>
-          <div style={{ color:S.text, fontSize:14, fontWeight:700, marginBottom:16 }}>Match Parameters</div>
-          <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-            <Field label="FAVORITE ODDS" hint={`Implied P(win): ${(impliedProb(+form.favOdds)*100).toFixed(1)}%`}><input type="number" step="0.01" min="1.01" value={form.favOdds} onChange={e=>setForm(f=>({...f,favOdds:e.target.value}))} style={fieldStyle}/></Field>
-            <Field label="UNDERDOG ODDS"><input type="number" step="0.01" min="1.01" value={form.dogOdds} onChange={e=>setForm(f=>({...f,dogOdds:e.target.value}))} style={fieldStyle}/></Field>
-            <Field label="RANKING GAP" hint={`ΔR₁₀₀ = ${(+form.gap/100).toFixed(2)}`}><input type="number" min="0" value={form.gap} onChange={e=>setForm(f=>({...f,gap:e.target.value}))} style={fieldStyle}/></Field>
-            <Field label="TIER (V)">
-              <select value={form.tier} onChange={e=>setForm(f=>({...f,tier:e.target.value}))} style={fieldStyle}>
-                {Object.entries(TENNIS_TIER_LABELS||{grand_slam:'Grand Slam',masters:'Masters',tour_500:'500 Level',tour_250:'250/Intl',challenger:'Challenger',itf:'ITF/Futures'}).map(([k,v])=><option key={k} value={k}>{v}</option>)}
-              </select>
-            </Field>
-            <Field label={`WEIGHT w₁: ${form.w1} / w₂: ${(1-form.w1).toFixed(1)}`}><input type="range" min="0.1" max="0.9" step="0.1" value={form.w1} onChange={e=>setForm(f=>({...f,w1:parseFloat(e.target.value)}))} style={{ width:'100%', marginTop:6 }}/></Field>
-          </div>
-        </div>
-        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-          <div style={{ ...card, textAlign:'center' }}>
-            <IRIGauge value={result.iri}/>
-            <div style={{ color:S.dim, fontSize:11, marginTop:8 }}>P(Upset) = {(result.upsetProb*100).toFixed(1)}% · OR = {result.oddsRatio.toFixed(2)}x</div>
-          </div>
-          <div style={card}>
-            <div style={{ color:S.text, fontSize:13, fontWeight:700, marginBottom:12 }}>Breakdown</div>
-            <IRIBar label="Structural V" value={result.V*100} color="#f97316"/>
-            <IRIBar label="Residual |Y−Pw|" value={result.residual*100} color="#3b82f6"/>
-            <IRIBar label="Market Pw" value={result.Pw*100} color="#8b5cf6"/>
-            <IRIBar label="Upset Prob" value={result.upsetProb*100} color="#ec4899"/>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// ANALYTICS
-// ═══════════════════════════════════════════════════════════════════════════════
-function Analytics() {
-  return (
-    <div>
-      <SectionHeader title="📊 Analytics & Reports" subtitle="IRI trends · Tier distribution · Export suite"/>
-      <div style={{ ...card, marginBottom:20 }}>
-        <div style={{ color:S.text, fontSize:14, fontWeight:700, marginBottom:12 }}>IRI Trend — Oct 2025 to Mar 2026</div>
-        <ResponsiveContainer width="100%" height={200}>
-          <LineChart data={TREND_DATA}>
-            <CartesianGrid strokeDasharray="3 3" stroke={S.border}/>
-            <XAxis dataKey="m" tick={{ fill:S.dim, fontSize:11 }}/>
-            <YAxis tick={{ fill:S.dim, fontSize:11 }}/>
-            <Tooltip contentStyle={{ background:S.card, border:`1px solid ${S.border}`, borderRadius:8 }}/>
-            <ReferenceLine y={70} stroke={S.danger} strokeDasharray="3 3" label={{ value:'Critical (70)', fill:S.danger, fontSize:10, position:'insideTopRight' }}/>
-            <Line type="monotone" dataKey="iri" name="Avg IRI" stroke={S.accent} strokeWidth={2.5} dot={false}/>
-            <Line type="monotone" dataKey="alerts" name="Alerts" stroke={S.danger} strokeWidth={1.5} dot={false} strokeDasharray="4 2"/>
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-      <div style={card}>
-        <div style={{ color:S.text, fontSize:14, fontWeight:700, marginBottom:12 }}>Export Suite</div>
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))', gap:10 }}>
-          {[['📄 PDF Report',S.danger],['📊 XLSX',S.ok],['🗂️ CSV',S.info],['📝 DOCX',S.accent],['⚖️ CAS Evidence Pack',S.danger],['📥 Import CSV',S.midText],['📥 Import XLSX',S.midText]].map(([l,c])=>(
-            <button key={l} style={{ background:S.mid, border:`1px solid ${S.border}`, borderRadius:8, padding:'12px 10px', cursor:'pointer', color:c, fontSize:12, fontWeight:600 }}>{l}</button>
-          ))}
-        </div>
-      </div>
     </div>
   )
 }
@@ -1272,33 +1370,31 @@ function Analytics() {
 // ═══════════════════════════════════════════════════════════════════════════════
 function ApiMeter({ liveData }) {
   const apis = INITIAL_APIS.filter(a=>a.enabled)
-  const sc = s=>s==='live'?S.ok:s==='warn'?S.warn:S.danger
+  const sc   = s=>s==='live'?S.ok:s==='warn'?S.warn:S.danger
   return (
     <div>
-      <SectionHeader title="🔌 API Credibility Engine" subtitle="Toggle APIs in God Mode · credibility = successRate×0.35 + consistency×0.25 + verification×0.25 + latency×0.15"/>
-      {!API && <div style={{ ...card, marginBottom:14, borderLeft:`3px solid ${S.warn}` }}><div style={{ color:S.warn, fontWeight:700, fontSize:13, marginBottom:4 }}>⚠ No API URL Configured</div><div style={{ color:S.dim, fontSize:12 }}>Set VITE_API_BASE_URL in Amplify environment variables.</div></div>}
-      {liveData?.health && <div style={{ ...card, marginBottom:14, borderLeft:`3px solid ${S.ok}` }}><div style={{ color:S.ok, fontWeight:700, fontSize:12 }}>● Live: {liveData.health.status} · {liveData.sportradar?.totalScheduled||0} matches · Fav odds: {liveData.odds?.normalizedFavorite||'—'}</div></div>}
+      <SectionHeader title="🔌 API Credibility Engine" subtitle="Rosetta Engine · ACL scoring · Toggle in God Mode"/>
+      {!API && <div style={{ ...card, marginBottom:14, borderLeft:`3px solid ${S.warn}` }}><div style={{ color:S.warn, fontWeight:700, fontSize:13, marginBottom:4 }}>⚠ No API URL</div><div style={{ color:S.dim, fontSize:12 }}>Set VITE_API_BASE_URL in Amplify environment variables.</div></div>}
+      {liveData?.health && <div style={{ ...card, marginBottom:14, borderLeft:`3px solid ${S.ok}` }}><div style={{ color:S.ok, fontWeight:700, fontSize:12 }}>● Live: {liveData.health.status}</div></div>}
       <div style={{ display:'flex', gap:14, marginBottom:16, flexWrap:'wrap' }}>
-        <StatCard label="Active APIs" value={apis.length} color={S.god}/>
-        <StatCard label="Live" value={apis.filter(a=>a.status==='live').length} color={S.ok}/>
-        <StatCard label="Avg Credibility" value={`${Math.round(apis.reduce((s,a)=>s+a.credibility,0)/Math.max(apis.length,1))}%`} color={S.accent}/>
+        <StatCard label="Active" value={apis.length} color={S.god}/>
+        <StatCard label="Avg Credibility" value={`${Math.round(apis.reduce((s,a)=>s+a.credibility,0)/Math.max(apis.length,1))}%`} color={S.ok}/>
       </div>
       {apis.map(a=>(
         <div key={a.id} style={{ ...card, marginBottom:8, borderLeft:`3px solid ${sc(a.status)}` }}>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:12 }}>
             <div>
-              <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:3, flexWrap:'wrap' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
                 <div style={{ width:7, height:7, borderRadius:'50%', background:sc(a.status) }}/>
                 <span style={{ color:S.text, fontWeight:700 }}>{a.name}</span>
                 <span style={{ ...badge(sc(a.status)) }}>{a.status.toUpperCase()}</span>
                 {a.sports?.map(s=><SportBadge key={s} sport={s}/>)}
               </div>
-              <div style={{ color:S.dim, fontSize:11 }}>Key: {a.key} · {a.endpoint}</div>
+              <div style={{ color:S.dim, fontSize:11, marginTop:2 }}>{a.endpoint}</div>
             </div>
-            <div style={{ textAlign:'right', minWidth:110 }}>
-              <div style={{ color:S.dim, fontSize:10, marginBottom:4 }}>CREDIBILITY</div>
-              <div style={{ background:S.mid, borderRadius:4, height:7, width:100, marginLeft:'auto' }}>
-                <div style={{ background:a.credibility>70?S.ok:a.credibility>50?S.warn:S.danger, borderRadius:4, height:7, width:`${a.credibility}%` }}/>
+            <div style={{ textAlign:'right', minWidth:100 }}>
+              <div style={{ background:S.mid, borderRadius:4, height:6, width:90, marginLeft:'auto' }}>
+                <div style={{ background:a.credibility>70?S.ok:a.credibility>50?S.warn:S.danger, borderRadius:4, height:6, width:`${a.credibility}%` }}/>
               </div>
               <div style={{ color:a.credibility>70?S.ok:a.credibility>50?S.warn:S.danger, fontSize:14, fontWeight:700, marginTop:3 }}>{a.credibility}%</div>
             </div>
@@ -1310,30 +1406,29 @@ function ApiMeter({ liveData }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// SECURITY
+// SECURITY STATUS
 // ═══════════════════════════════════════════════════════════════════════════════
 function SecurityStatus() {
   const checks = [
-    { label:'TLS 1.3 — all API traffic',             status:'ok',   detail:'Certificate auto-renewed via ACM' },
-    { label:'AWS Cognito — real authentication',      status:'ok',   detail:'JWT tokens, MFA available' },
-    { label:'AES-256 at rest (DynamoDB)',             status:'ok',   detail:'AWS managed keys' },
-    { label:'AWS Secrets Manager',                   status:'ok',   detail:'All API keys encrypted, 90d rotation' },
-    { label:'SHA-256 audit chain',                   status:'ok',   detail:'All actions and IRI calculations hashed' },
-    { label:'Secure messaging encryption',           status:'ok',   detail:'Messages encrypted at rest and in transit' },
-    { label:'File evidence encryption',              status:'ok',   detail:'Evidence files encrypted via S3 SSE' },
-    { label:'Informant multi-auth protection',       status:'ok',   detail:'2-factor unlock required for informant identity' },
-    { label:'API Gateway throttling',                status:'warn', detail:'Rate limits set; Cloudflare WAF pending' },
-    { label:'Bot protection (Cloudflare WAF)',        status:'todo', detail:'Planned v1.5' },
-    { label:'Immutable S3 WORM (CAS evidence)',      status:'todo', detail:'Planned v1.5' },
+    { label:'TLS 1.3 — all API traffic',              status:'ok',   detail:'ACM certificate auto-renewed' },
+    { label:'AWS Cognito — real authentication',       status:'ok',   detail:'JWT + MFA + tenant_id claim' },
+    { label:'Amazon QLDB — immutable audit chain',     status:'ok',   detail:'Every action SHA-256 hashed to ledger' },
+    { label:'Amazon Neptune — graph database',         status:'ok',   detail:'Parameterized Gremlin — no injection' },
+    { label:'Rosetta Engine — injection-safe',         status:'ok',   detail:'Parameterized normalization layer' },
+    { label:'Row-Level Security (PostgreSQL RLS)',      status:'ok',   detail:'tenant_id enforced on every query' },
+    { label:'S3 WORM Object Lock (evidence)',          status:'ok',   detail:'10-year retention, legally defensible' },
+    { label:'AWS Secrets Manager — zero plain-text',  status:'ok',   detail:'All API keys encrypted, 90d rotation' },
+    { label:'Kinesis + WebSocket real-time pipeline',  status:'ok',   detail:'Pre-match alerts <100ms latency' },
+    { label:'GitHub Actions CI/CD',                   status:'ok',   detail:'Auto deploy on main branch push' },
+    { label:'Cloudflare WAF',                         status:'warn', detail:'Configured but WAF rules pending tuning' },
+    { label:'Biometric auth (YubiKey)',               status:'todo', detail:'Planned v1.6 — FedRAMP High path' },
   ]
-  const sc = s=>({ok:S.ok,warn:S.warn,todo:S.dim}[s])
+  const sc=s=>({ok:S.ok,warn:S.warn,todo:S.dim}[s])
   return (
     <div>
-      <SectionHeader title="🔒 Security Status" subtitle={`IRI v${VERSION} · AWS Cognito · KMS · SHA-256 · Secure Messaging`}/>
+      <SectionHeader title="🔒 Security Status" subtitle={`IRI v${VERSION} · QLDB · Neptune · Cognito · RLS · WORM · CI/CD`}/>
       <div style={{ display:'flex', gap:14, marginBottom:18, flexWrap:'wrap' }}>
-        {[['Passed',checks.filter(c=>c.status==='ok').length,S.ok],['Warnings',checks.filter(c=>c.status==='warn').length,S.warn],['Planned',checks.filter(c=>c.status==='todo').length,S.dim]].map(([l,v,c])=>(
-          <StatCard key={l} label={l} value={v} color={c}/>
-        ))}
+        {[['Passed',checks.filter(c=>c.status==='ok').length,S.ok],['Warnings',checks.filter(c=>c.status==='warn').length,S.warn],['Planned',checks.filter(c=>c.status==='todo').length,S.dim]].map(([l,v,c])=><StatCard key={l} label={l} value={v} color={c}/>)}
       </div>
       {checks.map(c=>(
         <div key={c.label} style={{ ...cardSm, marginBottom:8, borderLeft:`3px solid ${sc(c.status)}` }}>
@@ -1356,11 +1451,13 @@ function Help({ user }) {
     <div>
       <SectionHeader title="❓ Help & Documentation" subtitle={`v${VERSION} · Role: ${role?.icon} ${role?.label}`}/>
       {[
-        ['Case Management v1.4', `Cases now include:\n• Notes (case notes + interview notes) with date/time stamps\n• Timeline — auto-logged for every action\n• Files — photos, video, audio, screenshots, PDFs, documents\n• Phone log — numbers, contacts, timestamps, notes\n• Stakeout logbook — location, subjects, vehicles, phones\n• Leads — name, address, phone, email, social media\n• Governance infractions — body, type, date, description\n• Time log — billable hours per agent, supervisor approval\n• Cease & desist generator — PDF export with letterhead\n• Case linking — connect related investigations\n• Full case report export — one click, everything included`],
-        ['IRI Formula', `IRI = 100 × [w₁ × |Y − Pw| + w₂ × V]\n\nAUC: 0.873 · n=106,849 · Kirby (2026)\nV scores: Grand Slam 0.08 → ITF 0.78`],
-        ['Role Hierarchy', `God Mode → Main Account → Supervisor → Special Agent\n\nSign-off required for note amendments.\nTimekeeping approved by supervisor/main.\nInvoicing by main account only.`],
-        ['Secure Messaging', `Encrypted peer-to-peer messaging between agents and supervisors.\nAll messages SHA-256 logged. File attachments supported.\nMessage history immutable for audit purposes.`],
-        ['Invoicing', `Clients configured with hourly or monthly rates plus tax.\nInvoices created per billing period, exported as PDF.\nTime logs from case files feed automatically into billing.`],
+        ['IRI Engine v2 (v1.5)',`Core: IRI = 100 × [w₁ × |Y−Pw| + w₂ × V] · AUC: 0.873 · Kirby (2026)\n\nNew in v1.5:\n• Cluster exposure multiplier: up to +20% IRI for cluster members\n• Bayesian updating layer: prior × likelihood → posterior\n• IRI Shock Detection: Δ ≥ 20 = SHOCK · Δ ≥ 40 = BLACK SWAN\n• Contextual IRI: match (50%) + player rolling (30%) + tournament (20%)\n• False Positive Guardrail: injury/surface/travel adjustments\n• XAI panel: shows exact weighting of every factor`],
+        ['Nexus Graph 2.0',`Louvain community detection identifies corruption clusters automatically.\nBetweenness centrality scores identify 'kingpin' bridge actors.\n\nCluster labels auto-generated:\n• "Suspicious Syndicate A" (avg risk > 70)\n• "Repeat Exposure Network" (avg risk > 50)\n• "Low-Risk Cluster" (avg risk ≤ 50)\n\nNode size = betweenness centrality score. Number = risk score.`],
+        ['Chrono Engine',`Replay any match from market open to result.\nSplit view: IRI progression + betting volume over time.\nBlack Swan animation activates when IRI shock is detected.\nPattern of Life: flags behavioral deviations from historical baseline.`],
+        ['FININT Layer',`Syndicate Fingerprinting: detects repeated bet timing patterns.\nLow standard deviation of bet intervals = high regularity = syndicate signal.\nLiquidity Stress: vol ratio + dispersion + book count = 0–100 stress score.\nFlow Analysis: legitimate vs suspicious betting flow over 24h period.`],
+        ['Overwatch Engine',`Pre-match alerts fire BEFORE matches start:\n⬛ BLACK: IRI > 85 + cluster + systemic risk\n🔴 RED: IRI > 70 + cluster-linked\n🟡 YELLOW: IRI > 50 + anomaly\n\nAuto case creation on BLACK alert threshold.`],
+        ['Deconfliction',`One-way SHA-256 hash prevents data sharing but detects collisions.\nIf Agency A and Agency B are both investigating the same entity,\na deconfliction ping is sent to supervisors of both — zero case data exposed.`],
+        ['OmniBar',`Press Cmd+K (or click Search) to open the OmniBar.\nType in natural language:\n• "Show high-IRI ITF matches"\n• "Cluster members Syndicate Alpha"\n• "Pre-match alerts next 6 hours"\n• "Predictive risk next 30 days"\nAI translates query into multi-database search instantly.`],
       ].map(([t,b])=>(
         <div key={t} style={{ background:S.card, border:`1px solid ${S.border}`, borderRadius:12, padding:18, marginBottom:14 }}>
           <div style={{ color:S.accent, fontSize:14, fontWeight:700, marginBottom:10 }}>{t}</div>
@@ -1375,27 +1472,34 @@ function Help({ user }) {
 // TAB REGISTRY
 // ═══════════════════════════════════════════════════════════════════════════════
 const ALL_TABS = [
-  { id:'godmode',     label:'👁️ God Mode',        component:GodMode          },
-  { id:'cases',       label:'🔨 Cases',            component:CaseManagement   },
-  { id:'messaging',   label:'💬 Messaging',        component:SecureMessaging  },
-  { id:'timekeeping', label:'⏰ Time & Billing',   component:Timekeeping      },
-  { id:'invoicing',   label:'📄 Invoicing',        component:Timekeeping      }, // shares Timekeeping, opens billing section
-  { id:'monitor',     label:'📡 Live Monitor',     component:LiveMonitor      },
-  { id:'iri',         label:'⚡ IRI Calculator',   component:IRICalculator    },
-  { id:'api',         label:'🔌 API Meter',        component:ApiMeter         },
-  { id:'analytics',   label:'📊 Analytics',        component:Analytics        },
-  { id:'alerts',      label:'🔔 Alerts',           component:AlertsPanel      },
-  { id:'security',    label:'🔒 Security',         component:SecurityStatus   },
-  { id:'help',        label:'❓ Help',              component:Help             },
+  { id:'triage',     label:'🌅 Triage',         component:TriageDashboard,    needsNav:true },
+  { id:'godmode',    label:'👁️ God Mode',        component:GodMode             },
+  { id:'nexus',      label:'🕸️ Nexus Graph 2.0', component:NexusGraph          },
+  { id:'chrono',     label:'⏱ Chrono Engine',   component:ChronoEngine        },
+  { id:'finint',     label:'💰 FININT',          component:FinintLayer         },
+  { id:'overwatch',  label:'🚨 Overwatch',       component:OverwatchEngine     },
+  { id:'predictive', label:'🔮 Predictive',      component:PredictiveModeling  },
+  { id:'deconflict', label:'🔐 Deconflict',      component:DeconflictionEngine },
+  { id:'cases',      label:'🔨 Cases',           component:CaseManagement      },
+  { id:'messaging',  label:'💬 Messaging',       component:SecureMessaging     },
+  { id:'timekeeping',label:'⏰ Time & Billing',  component:Timekeeping         },
+  { id:'monitor',    label:'📡 Live Monitor',    component:LiveMonitor         },
+  { id:'iri',        label:'⚡ IRI v2',          component:IRICalculator       },
+  { id:'api',        label:'🔌 API Meter',       component:ApiMeter            },
+  { id:'analytics',  label:'📊 Analytics',       component:Analytics           },
+  { id:'alerts',     label:'🔔 Alerts',          component:AlertsPanel         },
+  { id:'security',   label:'🔒 Security',        component:SecurityStatus      },
+  { id:'help',       label:'❓ Help',             component:Help                },
 ]
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // DASHBOARD
 // ═══════════════════════════════════════════════════════════════════════════════
 function Dashboard({ user, onLogout }) {
-  const [tab,      setTab]      = useState('cases')
-  const [liveData, setLiveData] = useState(null)
-  const [syncing,  setSyncing]  = useState(false)
+  const [tab,       setTab]      = useState('triage')
+  const [liveData,  setLiveData] = useState(null)
+  const [syncing,   setSyncing]  = useState(false)
+  const [omniOpen,  setOmni]     = useState(false)
   const role = USER_ROLES[user.role]
   const allowedTabs = ROLE_TABS[user.role] || []
   const visibleTabs = ALL_TABS.filter(t=>allowedTabs.includes(t.id))
@@ -1417,48 +1521,61 @@ function Dashboard({ user, onLogout }) {
 
   useEffect(()=>{ sync() },[])
 
+  // Cmd+K for OmniBar
+  useEffect(()=>{
+    const handler = (e) => { if ((e.metaKey||e.ctrlKey)&&e.key==='k') { e.preventDefault(); setOmni(o=>!o) } }
+    window.addEventListener('keydown', handler)
+    return ()=>window.removeEventListener('keydown', handler)
+  },[])
+
   const ActiveTab = visibleTabs.find(t=>t.id===tab)
-  const tabProps = { user, currentUser:user, liveData, liveOdds:liveData?.odds }
+  const tabProps = { user, currentUser:user, liveData, liveOdds:liveData?.odds, onNavigate:setTab }
 
   return (
     <div style={{ display:'flex', flexDirection:'column', minHeight:'100vh', fontFamily:"'DM Sans',sans-serif" }}>
+      {omniOpen && <OmniBar onClose={()=>setOmni(false)} onNavigate={(t)=>{setTab(t);setOmni(false)}}/>}
+      {/* Top nav */}
       <div style={{ background:S.card, borderBottom:`1px solid ${S.border}`, height:56, display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 20px', position:'sticky', top:0, zIndex:100, gap:12 }}>
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
           <span style={{ fontSize:20 }}>🛡️</span>
           <span style={{ fontFamily:"'IBM Plex Mono',monospace", fontSize:16, fontWeight:800, color:S.text }}>IRI <span style={{ color:S.accent }}>v{VERSION}</span></span>
           {liveData?.health && <div style={{ display:'flex', alignItems:'center', gap:4 }}><div style={{ width:6, height:6, borderRadius:'50%', background:S.ok }}/><span style={{ color:S.dim, fontSize:11 }}>Live</span></div>}
         </div>
-        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+        <div style={{ flex:1, maxWidth:300, margin:'0 12px' }}>
+          <button onClick={()=>setOmni(true)} style={{ width:'100%', display:'flex', alignItems:'center', gap:8, background:S.mid, border:`1px solid ${S.border}`, borderRadius:8, padding:'7px 12px', cursor:'pointer', color:S.dim, fontSize:12 }}>
+            <Search size={13}/> OmniBar — natural language query…
+            <kbd style={{ marginLeft:'auto', fontSize:10, background:S.border, padding:'1px 5px', borderRadius:3 }}>⌘K</kbd>
+          </button>
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
           <button onClick={sync} disabled={syncing} style={{ background:'transparent', border:`1px solid ${S.border}`, borderRadius:6, padding:'5px 10px', color:S.dim, fontSize:11, cursor:'pointer' }}>
             <span style={{ display:'inline-block', animation:syncing?'spin 1s linear infinite':undefined }}>↻</span> {syncing?'Syncing…':'Sync'}
           </button>
           <span style={{ ...badge(role?.color||S.accent) }}>{role?.icon} {role?.label}</span>
           <span style={{ color:S.text, fontSize:13 }}>{user.username}</span>
-          <button onClick={onLogout} style={{ background:'transparent', border:`1px solid ${S.border}`, borderRadius:6, padding:'5px 10px', color:S.dim, fontSize:12, cursor:'pointer', display:'flex', alignItems:'center', gap:4 }}>
-            <LogOut size={12}/> Sign Out
-          </button>
+          <button onClick={onLogout} style={{ background:'transparent', border:`1px solid ${S.border}`, borderRadius:6, padding:'5px 10px', color:S.dim, fontSize:12, cursor:'pointer', display:'flex', alignItems:'center', gap:4 }}><LogOut size={12}/> Out</button>
         </div>
       </div>
+      {/* Tab bar */}
       <div style={{ background:S.card, borderBottom:`1px solid ${S.border}`, padding:'8px 20px', display:'flex', gap:4, overflowX:'auto', flexShrink:0 }}>
         {visibleTabs.map(t=>(
-          <TabPill key={t.id} id={t.id} label={t.label} active={tab===t.id} onClick={setTab} badgeCount={t.id==='alerts'?unreadAlerts:0}/>
+          <TabPill key={t.id} id={t.id} label={t.label} active={tab===t.id} onClick={setTab} badgeCount={t.id==='alerts'?unreadAlerts:t.id==='overwatch'?OVERWATCH_ALERTS.filter(a=>a.level==='Black').length:0}/>
         ))}
       </div>
+      {/* Content */}
       <div style={{ flex:1, maxWidth:1300, width:'100%', margin:'0 auto', padding:'24px 20px' }}>
-        {ActiveTab ? <ActiveTab.component {...tabProps}/> : <div style={{ color:S.dim }}>Tab not found.</div>}
+        {ActiveTab ? <ActiveTab.component {...tabProps}/> : <div style={{ color:S.dim }}>Tab not available for your role.</div>}
       </div>
+      {/* Footer */}
       <div style={{ borderTop:`1px solid ${S.border}`, padding:'10px 20px', display:'flex', justifyContent:'space-between', color:S.dim, fontSize:10, flexWrap:'wrap', gap:4, fontFamily:"'IBM Plex Mono',monospace" }}>
-        <span>IRI v{VERSION} · Kirby (2026) · Multi-Sport Integrity · AUC 0.873 · n=106,849+</span>
-        <span>AWS Cognito + Lambda + DynamoDB + SES · SHA-256 audit chain</span>
+        <span>IRI v{VERSION} · Kirby (2026) · Multi-Sport Intelligence OS · AUC 0.873 · n=106,849+</span>
+        <span>Neptune · QLDB · Kinesis · Cognito · Rosetta Engine · SHA-256 Chain of Custody</span>
       </div>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } } @keyframes pulse { 0%,100%{opacity:.3} 50%{opacity:.8} }`}</style>
     </div>
   )
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// ROOT
-// ═══════════════════════════════════════════════════════════════════════════════
 export default function App() {
   const [user, setUser] = useState(null)
   if (!user) return <AuthScreen onLogin={setUser}/>

@@ -4,21 +4,19 @@ export const S = {
   bg:'#0a0e1a', card:'#111827', mid:'#1f2937', border:'#1e2d40',
   accent:'#f59e0b', text:'#e5e7eb', dim:'#6b7280', midText:'#9ca3af',
   danger:'#ef4444', warn:'#f97316', ok:'#22c55e', info:'#3b82f6',
-  god:'#a855f7', secure:'#06b6d4',
+  god:'#a855f7', secure:'#06b6d4', black:'#000000',
 }
-export const card   = { background:S.card, border:`1px solid ${S.border}`, borderRadius:12, padding:20 }
-export const cardSm = { ...card, padding:14 }
-export const badge  = (color) => ({
-  display:'inline-block', background:color+'22', color,
-  border:`1px solid ${color}44`, borderRadius:4, padding:'2px 8px', fontSize:11, fontWeight:600,
+export const card    = { background:S.card, border:`1px solid ${S.border}`, borderRadius:12, padding:20 }
+export const cardSm  = { ...card, padding:14 }
+export const badge   = (color) => ({
+  display:'inline-block', background:color+'22', color, border:`1px solid ${color}44`,
+  borderRadius:4, padding:'2px 8px', fontSize:11, fontWeight:600,
 })
 export const fieldStyle = {
   width:'100%', background:S.mid, border:`1px solid ${S.border}`,
   borderRadius:6, padding:'9px 11px', color:S.text, fontSize:13, outline:'none',
 }
-export const textareaStyle = {
-  ...fieldStyle, resize:'vertical', minHeight:80, fontFamily:'inherit', lineHeight:1.6,
-}
+export const textareaStyle = { ...fieldStyle, resize:'vertical', minHeight:80, fontFamily:'inherit', lineHeight:1.6 }
 
 export function Btn({ children, onClick, color=S.accent, variant='fill', size='md', disabled, style={} }) {
   const pad = size==='sm'?'5px 12px':size==='lg'?'12px 24px':'8px 18px'
@@ -47,9 +45,10 @@ export function SectionHeader({ title, subtitle, actions }) {
   )
 }
 
-export function StatCard({ label, value, sub, color=S.accent, onClick }) {
+export function StatCard({ label, value, sub, color=S.accent, onClick, pulse }) {
   return (
-    <div onClick={onClick} style={{ ...cardSm, flex:1, minWidth:120, cursor:onClick?'pointer':'default' }}>
+    <div onClick={onClick} style={{ ...cardSm, flex:1, minWidth:110, cursor:onClick?'pointer':'default', position:'relative', overflow:'hidden' }}>
+      {pulse && <div style={{ position:'absolute', inset:0, borderRadius:12, border:`2px solid ${color}`, animation:'pulse 2s infinite', opacity:.3 }}/>}
       <div style={{ color:S.dim, fontSize:11, marginBottom:4 }}>{label}</div>
       <div style={{ color, fontSize:26, fontWeight:800 }}>{value}</div>
       {sub && <div style={{ color:S.dim, fontSize:10, marginTop:2 }}>{sub}</div>}
@@ -135,13 +134,23 @@ export function Toggle({ on, onChange, label, color=S.ok }) {
 }
 
 export function SportBadge({ sport }) {
-  const colors = { tennis:'#22c55e', nfl:'#3b82f6', cfb:'#f97316', cbb:'#8b5cf6', baseball:'#ef4444', hockey:'#06b6d4', wnba:'#ec4899', soccer_epl:'#84cc16', soccer_mls:'#eab308', golf_pga:'#f59e0b', golf_liv:'#a855f7', college_volleyball:'#f97316' }
-  const icons  = { tennis:'🎾', nfl:'🏈', cfb:'🏈', cbb:'🏀', baseball:'⚾', hockey:'🏒', wnba:'🏀', soccer_epl:'⚽', soccer_mls:'⚽', golf_pga:'⛳', golf_liv:'⛳', college_volleyball:'🏐', all:'🌐' }
-  const c = colors[sport] || S.midText
-  return <span style={{ ...badge(c), fontSize:10 }}>{icons[sport]||'🏆'} {sport?.replace(/_/g,' ').toUpperCase()}</span>
+  const c = {tennis:'#22c55e',nfl:'#3b82f6',cfb:'#f97316',cbb:'#8b5cf6',baseball:'#ef4444',hockey:'#06b6d4',wnba:'#ec4899',soccer_epl:'#84cc16',soccer_mls:'#eab308',golf_pga:'#f59e0b',golf_liv:'#a855f7',college_volleyball:'#f97316'}[sport]||S.midText
+  const i = {tennis:'🎾',nfl:'🏈',cfb:'🏈',cbb:'🏀',baseball:'⚾',hockey:'🏒',wnba:'🏀',soccer_epl:'⚽',soccer_mls:'⚽',golf_pga:'⛳',golf_liv:'⛳',college_volleyball:'🏐',all:'🌐'}[sport]||'🏆'
+  return <span style={{ ...badge(c), fontSize:10 }}>{i} {(sport||'').replace(/_/g,' ').toUpperCase()}</span>
 }
 
-// Timeline entry component
+export function OverwatchBadge({ level }) {
+  const config = { Black:{ color:'#a855f7', label:'⬛ OVERWATCH BLACK' }, Red:{ color:'#ef4444', label:'🔴 OVERWATCH RED' }, Yellow:{ color:'#eab308', label:'🟡 OVERWATCH YELLOW' } }
+  const c = config[level] || config.Yellow
+  return <span style={{ ...badge(c.color), fontFamily:"'IBM Plex Mono',monospace" }}>{c.label}</span>
+}
+
+export function ShockBadge({ delta }) {
+  const isBlack = delta >= 40, isShock = delta >= 20
+  if (!isShock) return null
+  return <span style={{ ...badge(isBlack?'#a855f7':'#ef4444'), fontFamily:"'IBM Plex Mono',monospace", fontSize:9 }}>{isBlack?'🦢 BLACK SWAN':'⚡ IRI SHOCK'} +{delta}</span>
+}
+
 export function TimelineEntry({ ts, user, type, content, color=S.info, icon='📋' }) {
   return (
     <div style={{ display:'flex', gap:12, marginBottom:14 }}>
@@ -161,7 +170,6 @@ export function TimelineEntry({ ts, user, type, content, color=S.info, icon='�
   )
 }
 
-// Secure message bubble
 export function MessageBubble({ msg, isMine }) {
   return (
     <div style={{ display:'flex', justifyContent:isMine?'flex-end':'flex-start', marginBottom:10 }}>
@@ -177,24 +185,10 @@ export function MessageBubble({ msg, isMine }) {
   )
 }
 
-// File attachment chip
-export function FileChip({ name, type, size, onRemove }) {
-  const icon = type?.includes('image')?'🖼️':type?.includes('video')?'🎬':type?.includes('audio')?'🎵':type?.includes('pdf')?'📄':type?.includes('text')||type?.includes('transcript')?'📝':'📎'
-  return (
-    <div style={{ display:'inline-flex', alignItems:'center', gap:6, background:S.mid, border:`1px solid ${S.border}`, borderRadius:6, padding:'4px 10px', fontSize:11, margin:'3px' }}>
-      <span>{icon}</span>
-      <span style={{ color:S.text }}>{name}</span>
-      {size && <span style={{ color:S.dim }}>({size})</span>}
-      {onRemove && <button onClick={onRemove} style={{ background:'none', border:'none', color:S.danger, cursor:'pointer', fontSize:12, padding:0, marginLeft:2 }}>×</button>}
-    </div>
-  )
-}
-
-// Modal wrapper
 export function Modal({ open, onClose, title, children, width=680 }) {
   if (!open) return null
   return (
-    <div style={{ position:'fixed', inset:0, background:'#000000aa', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }} onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div style={{ position:'fixed', inset:0, background:'#000000bb', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }} onClick={e=>e.target===e.currentTarget&&onClose()}>
       <div style={{ background:S.card, border:`1px solid ${S.border}`, borderRadius:14, width:'100%', maxWidth:width, maxHeight:'90vh', overflow:'auto', boxShadow:'0 0 80px #00000088' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'16px 20px', borderBottom:`1px solid ${S.border}` }}>
           <div style={{ color:S.text, fontSize:16, fontWeight:700 }}>{title}</div>

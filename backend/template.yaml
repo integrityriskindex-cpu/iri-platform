@@ -1,0 +1,254 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  IRI v1.5 — Integrity Intelligence OS Infrastructure
+  Kinesis · WebSocket API · Neptune Graph · QLDB · DynamoDB · Lambda · S3 WORM
+
+Globals:
+  Function:
+    Runtime: nodejs18.x
+    Timeout: 30
+    MemorySize: 512
+    Environment:
+      Variables:
+        KINESIS_STREAM_NAME: !Ref IriAlertStream
+        TABLE_NAME:          !Ref WebSocketConnectionsTable
+        ALERT_TABLE:         !Ref IntegrityAuditLogsTable
+        NEPTUNE_ENDPOINT:    !Sub "wss://${NeptuneClusterEndpoint}:8182/gremlin"
+        EVIDENCE_BUCKET:     !Ref EvidenceVaultBucket
+
+# ── Parameters ─────────────────────────────────────────────────────────────────
+Parameters:
+  NeptuneClusterEndpoint:
+    Type:    String
+    Default: "your-neptune-cluster.cluster-xxxxxxxxxx.us-east-2.neptune.amazonaws.com"
+    Description: Neptune cluster endpoint (from Neptune console)
+
+  VpcId:
+    Type:    AWS::EC2::VPC::Id
+    Description: VPC ID — Lambda and Neptune must be in same VPC
+
+  SubnetIds:
+    Type:    List<AWS::EC2::Subnet::Id>
+    Description: Private subnet IDs for Lambda VPC config
+
+  LambdaSecurityGroupId:
+    Type:    AWS::EC2::SecurityGroup::Id
+    Description: Security group with port 8182 open to Neptune
+
+Resources:
+
+  # ── 1. Real-time Data Stream ──────────────────────────────────────────────────
+  IriAlertStream:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name:       iri-alert-stream
+      ShardCount: 2  # Scale up for production volume
+      RetentionPeriodHours: 168  # 7-day retention
+      Tags:
+        - Key: Project
+          Value: IRI-v1.5
+
+  # ── 2. DynamoDB — WebSocket connection tracking ───────────────────────────────
+  WebSocketConnectionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName:    IriWebSocketConnections
+      BillingMode:  PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: connectionId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: connectionId
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  # ── 3. DynamoDB — IRI Audit Logs ─────────────────────────────────────────────
+  IntegrityAuditLogsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName:    IntegrityAuditLogs
+      BillingMode:  PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: logId
+          AttributeType: S
+        - AttributeName: type
+          AttributeType: S
+      KeySchema:
+        - AttributeName: logId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: TypeIndex
+          KeySchema:
+            - AttributeName: type
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  # ── 4. S3 Evidence Vault (WORM Object Lock) ───────────────────────────────────
+  EvidenceVaultBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "iri-evidence-vault-${AWS::AccountId}"
+      ObjectLockEnabled: true          # WORM — legally defensible
+      ObjectLockConfiguration:
+        ObjectLockEnabled: Enabled
+        Rule:
+          DefaultRetention:
+            Mode:  COMPLIANCE          # Cannot be overridden even by root
+            Years: 10
+      VersioningConfiguration:
+        Status: Enabled
+      ServerSideEncryptionConfiguration:
+        Rules:
+          - ApplyServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms   # Customer-managed KMS key
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls:       true
+        BlockPublicPolicy:     true
+        IgnorePublicAcls:      true
+        RestrictPublicBuckets: true
+
+  # ── 5. QLDB Ledger — Immutable Chain of Custody ───────────────────────────────
+  IriChainOfCustodyLedger:
+    Type: AWS::QLDB::Ledger
+    Properties:
+      Name:             IriChainOfCustodyLedger
+      PermissionsMode:  STANDARD
+      DeletionProtection: true        # Cannot be deleted accidentally
+
+  # ── 6. WebSocket API Gateway ──────────────────────────────────────────────────
+  IriWebSocketApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name:                     IriRealTimeAlerts
+      ProtocolType:             WEBSOCKET
+      RouteSelectionExpression: "$request.body.action"
+
+  # ── 7. Lambda: Rosetta Engine (Normalization + Kinesis ingest) ────────────────
+  RosettaIngestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler:     lambdas/rosettaIngest.handler
+      Description: Normalizes multi-source API payloads → Kinesis stream
+      Policies:
+        - KinesisStreamFullAccessPolicy:
+            StreamName: !Ref IriAlertStream
+      Events:
+        ApiIngest:
+          Type: Api
+          Properties:
+            Path:   /ingest
+            Method: post
+
+  # ── 8. Lambda: Kinesis Broadcaster (IRI scoring → WebSocket alerts) ───────────
+  KinesisBroadcasterFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler:     lambdas/kinesisBroadcaster.handler
+      Description: Reads Kinesis → computes IRI → pushes Overwatch alerts via WebSocket
+      Environment:
+        Variables:
+          WSS_ENDPOINT: !Sub "https://${IriWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/prod"
+      VpcConfig:
+        SecurityGroupIds: [!Ref LambdaSecurityGroupId]
+        SubnetIds:        !Ref SubnetIds
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WebSocketConnectionsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref IntegrityAuditLogsTable
+        - Statement:
+            Effect:   Allow
+            Action:   execute-api:ManageConnections
+            Resource: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${IriWebSocketApi}/*"
+      Events:
+        KinesisEvent:
+          Type: Kinesis
+          Properties:
+            Stream:           !GetAtt IriAlertStream.Arn
+            StartingPosition: LATEST
+            BatchSize:        10
+            BisectBatchOnFunctionError: true
+
+  # ── 9. Lambda: Neptune Graph Ingest ──────────────────────────────────────────
+  GraphIngestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler:     lambdas/graphIngest.handler
+      Description: Builds Nexus Graph in Neptune from Kinesis events
+      VpcConfig:
+        SecurityGroupIds: [!Ref LambdaSecurityGroupId]
+        SubnetIds:        !Ref SubnetIds
+      Events:
+        KinesisGraphEvent:
+          Type: Kinesis
+          Properties:
+            Stream:           !GetAtt IriAlertStream.Arn
+            StartingPosition: LATEST
+            BatchSize:        10
+
+  # ── 10. Lambda: CAS Report Generator ─────────────────────────────────────────
+  CasReportFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler:     lambdas/generateCasePdf.handler
+      Description: Generates court-admissible PDF + SHA-256 hashes to QLDB
+      MemorySize:  1024  # PDF generation needs more memory
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref EvidenceVaultBucket
+        - Statement:
+            Effect:   Allow
+            Action:   [qldb:ExecuteStatement, qldb:SendCommand]
+            Resource: !GetAtt IriChainOfCustodyLedger.Arn
+      Events:
+        ApiReport:
+          Type: Api
+          Properties:
+            Path:   /case/report
+            Method: post
+
+  # ── 11. Lambda: WebSocket Connect/Disconnect handlers ────────────────────────
+  WebSocketConnectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambdas/kinesisBroadcaster.connect
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WebSocketConnectionsTable
+
+  WebSocketDisconnectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambdas/kinesisBroadcaster.disconnect
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref WebSocketConnectionsTable
+
+# ── Outputs ────────────────────────────────────────────────────────────────────
+Outputs:
+  RosettaIngestApi:
+    Description: Rosetta Engine ingestion endpoint
+    Value:       !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/ingest"
+
+  WebSocketApiEndpoint:
+    Description: IRI Overwatch real-time WebSocket endpoint
+    Value:       !Sub "wss://${IriWebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/prod"
+
+  EvidenceVaultArn:
+    Description: S3 WORM evidence vault ARN
+    Value:       !GetAtt EvidenceVaultBucket.Arn
+
+  QldbLedgerArn:
+    Description: Chain of Custody QLDB ledger ARN
+    Value:       !GetAtt IriChainOfCustodyLedger.Arn
+
+  KinesisStreamArn:
+    Description: IRI Alert Stream ARN
+    Value:       !GetAtt IriAlertStream.Arn
