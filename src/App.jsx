@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { LineChart, Line, BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine, ComposedChart } from 'recharts'
 import { Shield, LogOut, RefreshCw, Search, Plus, Send, Paperclip, Download, Flag, Gavel, Share2, CheckCircle2, AlertTriangle, FileText, Key, Ban, UserPlus, Clock, DollarSign, MessageSquare, Eye, Link, ChevronDown, TrendingUp, Database, Cpu, Lock, Activity } from 'lucide-react'
+import { authenticate, loadSession, clearSession, getAuthLog, getUserList } from './utils/auth.js'
+import { loadCases, saveCases, saveCase, loadClients, saveClients, loadInvoices, saveInvoices, loadMessages, saveMessages, loadAlerts, saveAlerts, loadApis, saveApis, loadDismissed, saveDismissed, loadSettings, saveSettings, clearAllData, exportAllData } from './utils/store.js'
 
 import {
   VERSION, computeIRI, iriBand, impliedProb, computeCredibility,
@@ -102,48 +104,55 @@ function OmniBar({ onClose, onNavigate }) {
 // AUTH
 // ═══════════════════════════════════════════════════════════════════════════════
 function AuthScreen({ onLogin }) {
-  const [mode, setMode] = useState('login')
-  const [form, setForm] = useState({ username:'', password:'', role:'special_agent' })
-  const [err,  setErr]  = useState('')
+  const [form,    setForm]    = useState({ username:'', password:'' })
+  const [err,     setErr]     = useState('')
+  const [loading, setLoading] = useState(false)
 
-  const submit = () => {
+  const submit = async () => {
+    setErr('')
     if (!form.username.trim()) { setErr('Username is required.'); return }
-    if (form.password.length < 8) { setErr('Password must be at least 8 characters.'); return }
-    onLogin({ username:form.username, role:form.role })
+    if (!form.password)        { setErr('Password is required.'); return }
+    setLoading(true)
+    const result = await authenticate(form.username, form.password)
+    setLoading(false)
+    if (result.success) {
+      onLogin(result.user)
+    } else {
+      setErr(result.error)
+      setForm(f => ({ ...f, password: '' }))
+    }
   }
 
   return (
     <div style={{ minHeight:'100vh', background:S.bg, display:'flex', alignItems:'center', justifyContent:'center', position:'relative', overflow:'hidden' }}>
       <div style={{ position:'absolute', inset:0, backgroundImage:'linear-gradient(#1e2d4022 1px,transparent 1px),linear-gradient(90deg,#1e2d4022 1px,transparent 1px)', backgroundSize:'36px 36px', opacity:.5 }}/>
       <div style={{ position:'absolute', inset:0, backgroundImage:'radial-gradient(circle at 20% 20%,#a855f709,transparent 40%),radial-gradient(circle at 80% 80%,#f59e0b09,transparent 40%)' }}/>
-      <div style={{ ...card, width:440, maxWidth:'95vw', position:'relative', zIndex:1, boxShadow:'0 0 80px #a855f718' }}>
+      <div style={{ ...card, width:420, maxWidth:'95vw', position:'relative', zIndex:1, boxShadow:'0 0 80px #a855f718' }}>
         <div style={{ textAlign:'center', marginBottom:26 }}>
           <div style={{ fontSize:36, marginBottom:10 }}>🛡️</div>
           <div style={{ fontFamily:"'IBM Plex Mono',monospace", fontSize:22, fontWeight:800, color:S.text }}>IRI <span style={{ color:S.accent }}>v{VERSION}</span></div>
-          <div style={{ color:S.dim, fontSize:12, marginTop:4 }}>Intelligence Risk Index — Investigative OS</div>
-          <div style={{ color:S.dim, fontSize:11, marginTop:2, fontFamily:"'IBM Plex Mono',monospace" }}>AUC 0.873 · Multi-Sport · Kirby (2026) · v{VERSION}</div>
+          <div style={{ color:S.dim, fontSize:12, marginTop:4 }}>Integrity Intelligence OS — Secure Access</div>
+          <div style={{ color:S.dim, fontSize:11, marginTop:2, fontFamily:"'IBM Plex Mono',monospace" }}>AUC 0.873 · Multi-Sport · Kirby (2026)</div>
         </div>
-        <div style={{ display:'flex', gap:4, background:S.mid, borderRadius:8, padding:4, marginBottom:18 }}>
-          {['login','register'].map(m=>(
-            <button key={m} onClick={()=>{setMode(m);setErr('')}} style={{ flex:1, padding:'8px 0', background:mode===m?S.card:'transparent', color:mode===m?S.text:S.dim, border:`1px solid ${mode===m?S.border:'transparent'}`, borderRadius:6, cursor:'pointer', fontSize:13, fontWeight:mode===m?700:400, textTransform:'capitalize' }}>{m}</button>
-          ))}
-        </div>
-        {err && <div style={{ background:'#7f1d1d33', border:`1px solid #ef444444`, color:S.danger, padding:'8px 12px', borderRadius:6, fontSize:12, marginBottom:12 }}>{err}</div>}
-        <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-          <Field label="USERNAME"><input value={form.username} onChange={e=>setForm(f=>({...f,username:e.target.value}))} placeholder="Enter username" style={fieldStyle}/></Field>
-          {mode==='register' && <Field label="EMAIL"><input type="email" placeholder="your@email.com" style={fieldStyle}/></Field>}
-          <Field label="PASSWORD (8+ CHARACTERS)"><input type="password" value={form.password} onChange={e=>setForm(f=>({...f,password:e.target.value}))} placeholder="Password" style={fieldStyle} onKeyDown={e=>e.key==='Enter'&&submit()}/></Field>
-          <Field label="ACCESS ROLE">
-            <select value={form.role} onChange={e=>setForm(f=>({...f,role:e.target.value}))} style={fieldStyle}>
-              {Object.entries(USER_ROLES).map(([k,v])=><option key={k} value={k}>{v.icon} {v.label}</option>)}
-            </select>
+        {err && (
+          <div style={{ background:'#7f1d1d33', border:`1px solid #ef444444`, color:S.danger, padding:'10px 14px', borderRadius:8, fontSize:12, marginBottom:14, lineHeight:1.5 }}>
+            🔒 {err}
+          </div>
+        )}
+        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+          <Field label="USERNAME">
+            <input value={form.username} onChange={e=>setForm(f=>({...f,username:e.target.value}))} placeholder="Enter your username" style={fieldStyle} autoComplete="username" autoFocus onKeyDown={e=>e.key==='Enter'&&submit()}/>
           </Field>
-          <Btn onClick={submit} color={S.accent} size="lg" style={{ width:'100%', justifyContent:'center' }}>
-            {mode==='login' ? '🔐 Sign In' : '✨ Create Account'}
+          <Field label="PASSWORD">
+            <input type="password" value={form.password} onChange={e=>setForm(f=>({...f,password:e.target.value}))} placeholder="Enter your password" style={fieldStyle} autoComplete="current-password" onKeyDown={e=>e.key==='Enter'&&submit()}/>
+          </Field>
+          <Btn onClick={submit} disabled={loading} color={S.accent} size="lg" style={{ width:'100%', justifyContent:'center', marginTop:4 }}>
+            {loading ? '🔄 Authenticating…' : '🔐 Sign In'}
           </Btn>
         </div>
-        <div style={{ textAlign:'center', marginTop:14, color:S.dim, fontSize:10, fontFamily:"'IBM Plex Mono',monospace" }}>
-          AWS Cognito · SHA-256 chain · Rosetta Engine · Neptune Graph · QLDB
+        <div style={{ textAlign:'center', marginTop:16, color:S.dim, fontSize:10, fontFamily:"'IBM Plex Mono',monospace", lineHeight:1.8 }}>
+          SHA-256 credentials · Session: 8 hours · Audit logged<br/>
+          Contact your administrator to request access
         </div>
       </div>
     </div>
@@ -1138,11 +1147,19 @@ function GodMode({ user }) {
 // SECURE MESSAGING
 // ═══════════════════════════════════════════════════════════════════════════════
 function SecureMessaging({ user }) {
-  const [messages, setMessages] = useState(INITIAL_MESSAGES)
+  const [messages, setMessages] = useState(() => loadMessages(INITIAL_MESSAGES))
   const [active,   setActive]   = useState(null)
   const [newMsg,   setNewMsg]   = useState('')
   const [newContact, setNC]     = useState('')
   const messagesEndRef = useRef(null)
+
+  const setAndSaveMessages = (updater) => {
+    setMessages(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater
+      saveMessages(next)
+      return next
+    })
+  }
 
   const myThreads = Object.entries(messages).filter(([k])=>k.includes(user.username))
   const getOther  = (k) => k.split('|').find(u=>u!==user.username)
@@ -1151,7 +1168,7 @@ function SecureMessaging({ user }) {
   const send = () => {
     if (!newMsg.trim()||!active) return
     const msg = { id:`M-${uid()}`, from:user.username, to:getOther(active), ts:now(), text:newMsg, read:false, attachment:null }
-    setMessages(ms=>({ ...ms, [active]:[...(ms[active]||[]), msg] }))
+    setAndSaveMessages(ms=>({ ...ms, [active]:[...(ms[active]||[]), msg] }))
     setNewMsg('')
     setTimeout(()=>messagesEndRef.current?.scrollIntoView({ behavior:'smooth' }),50)
   }
@@ -1164,7 +1181,7 @@ function SecureMessaging({ user }) {
           <div style={{ color:S.text, fontSize:13, fontWeight:700, marginBottom:10 }}>Conversations</div>
           <div style={{ display:'flex', gap:6, marginBottom:10 }}>
             <input value={newContact} onChange={e=>setNC(e.target.value)} placeholder="Username…" style={{ ...fieldStyle, fontSize:12 }} onKeyDown={e=>e.key==='Enter'&&(()=>{if(newContact){const k=threadKey(user.username,newContact);setMessages(ms=>({...ms,[k]:ms[k]||[]}));setActive(k);setNC('')}})()}/>
-            <Btn size="sm" color={S.secure} onClick={()=>{if(newContact){const k=threadKey(user.username,newContact);setMessages(ms=>({...ms,[k]:ms[k]||[]}));setActive(k);setNC('')}}}><Plus size={10}/></Btn>
+            <Btn size="sm" color={S.secure} onClick={()=>{if(newContact){const k=threadKey(user.username,newContact);setAndSaveMessages(ms=>({...ms,[k]:ms[k]||[]}));setActive(k);setNC('')}}}><Plus size={10}/></Btn>
           </div>
           {myThreads.map(([k,msgs])=>{
             const other=getOther(k), last=msgs[msgs.length-1]
@@ -1268,15 +1285,24 @@ function Timekeeping({ user }) {
 // CASE MANAGEMENT (simplified — full system from v1.4)
 // ═══════════════════════════════════════════════════════════════════════════════
 function CaseManagement({ user }) {
-  const [cases, setCases] = useState(INITIAL_CASES)
-  const [showNew, setShowNew] = useState(false)
-  const [newCase, setNewCase] = useState({ title:'', severity:'High', sport:'tennis', jurisdiction:'', assignee:'', description:'' })
+  const [cases,   setCasesState] = useState(() => loadCases(INITIAL_CASES))
+  const [showNew, setShowNew]    = useState(false)
+  const [newCase, setNewCase]    = useState({ title:'', severity:'High', sport:'tennis', jurisdiction:'', assignee:'', description:'' })
   const sevColor = { Critical:S.danger, High:S.warn, Medium:S.accent, Low:S.ok }
+
+  // Wrap setCases so every change is persisted
+  const setCases = (updater) => {
+    setCasesState(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater
+      saveCases(next)
+      return next
+    })
+  }
 
   const create = () => {
     if (!newCase.title.trim()) return
-    const c = { id:`CASE-${Date.now().toString().slice(-5)}`, ...newCase, iri:0, confidence:0, status:'Open', stage:'Initial Alert', supervisor:user.username, created:now().split(' ')[0], due:'TBD', entities:[], linkedCases:[], linkedDossiers:[], pendingApproval:false, notes:[], timeline:[{ id:`TL-${uid()}`, ts:now(), user:user.username, type:'Case Opened', icon:'📁', color:S.info, text:`Created via IRI v${VERSION}. ${newCase.description}` }], files:[], phoneLog:[], stakeoutLog:[], leads:[], infractions:[], timeLogs:[] }
-    setCases(cs=>[c,...cs])
+    const c = { id:`CASE-${Date.now().toString().slice(-5)}`, ...newCase, iri:0, confidence:0, status:'Open', stage:'Initial Alert', supervisor:user.username, created:now().split(' ')[0], due:'TBD', entities:[], linkedCases:[], linkedDossiers:[], pendingApproval:false, notes:[], timeline:[{ id:`TL-${uid()}`, ts:now(), user:user.username, type:'Case Opened', icon:'📁', color:S.info, text:`Created by ${user.username} via IRI v${VERSION}. ${newCase.description}` }], files:[], phoneLog:[], stakeoutLog:[], leads:[], infractions:[], timeLogs:[] }
+    setCases(cs => [c, ...cs])
     setShowNew(false)
     setNewCase({ title:'', severity:'High', sport:'tennis', jurisdiction:'', assignee:'', description:'' })
   }
@@ -1339,7 +1365,14 @@ function CaseManagement({ user }) {
 // ALERTS
 // ═══════════════════════════════════════════════════════════════════════════════
 function AlertsPanel() {
-  const [alerts, setAlerts] = useState(INITIAL_ALERTS)
+  const [alerts, setAlerts] = useState(() => loadAlerts(INITIAL_ALERTS))
+
+  const markRead = (id) => {
+    const next = alerts.map(a => a.id === id ? { ...a, read:true } : a)
+    setAlerts(next)
+    saveAlerts(next)
+  }
+
   const sc = s=>({Critical:S.danger,High:S.warn,Elevated:S.accent,Info:S.info}[s]||S.dim)
   return (
     <div>
@@ -1349,7 +1382,7 @@ function AlertsPanel() {
         <StatCard label="Email Sent" value={alerts.filter(a=>a.emailSent).length} color={S.ok}/>
       </div>
       {alerts.map(a=>(
-        <div key={a.id} onClick={()=>setAlerts(al=>al.map(x=>x.id===a.id?{...x,read:true}:x))}
+        <div key={a.id} onClick={()=>markRead(a.id)}
           style={{ ...cardSm, marginBottom:8, cursor:'pointer', opacity:a.read?.65:1, borderLeft:`3px solid ${sc(a.severity)}` }}>
           <div style={{ display:'flex', gap:6, marginBottom:4, alignItems:'center', flexWrap:'wrap' }}>
             {!a.read&&<div style={{ width:6, height:6, borderRadius:'50%', background:S.danger }}/>}
@@ -1577,7 +1610,29 @@ function Dashboard({ user, onLogout }) {
 }
 
 export default function App() {
-  const [user, setUser] = useState(null)
+  const [user,    setUser]    = useState(null)
+  const [checked, setChecked] = useState(false)
+
+  // Restore session on load — if already logged in, skip auth screen
+  useEffect(() => {
+    const existing = loadSession()
+    if (existing) setUser(existing)
+    setChecked(true)
+  }, [])
+
+  const logout = () => {
+    clearSession()
+    setUser(null)
+  }
+
+  if (!checked) {
+    return (
+      <div style={{ minHeight:'100vh', background:S.bg, display:'flex', alignItems:'center', justifyContent:'center' }}>
+        <div style={{ color:S.dim, fontFamily:"'IBM Plex Mono',monospace" }}>Initializing IRI v{VERSION}…</div>
+      </div>
+    )
+  }
+
   if (!user) return <AuthScreen onLogin={setUser}/>
-  return <Dashboard user={user} onLogout={()=>setUser(null)}/>
+  return <Dashboard user={user} onLogout={logout}/>
 }
