@@ -19,8 +19,8 @@
 const USER_DB = [
   // ── CHANGE THESE PASSWORDS — generate new hashes using the method above ──
   {
-    username:     'admin',
-    // Password: Change_Me_2026! — REPLACE THIS HASH IMMEDIATELY
+    username:     'IntegrityChief',
+    // Password: IntegrityConf24!
     passwordHash: '7c4a8d09ca3762af61e59520943dc26494f8941b', // placeholder — SHA-1, replace with SHA-256
     role:         'god',
     displayName:  'System Administrator',
