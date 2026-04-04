@@ -7,9 +7,8 @@ import { Download, Gavel, Eye, Search, Plus } from 'lucide-react'
 import { ALL_ROLES } from '../utils/auth.js'
 import { S, card, cardSm, badge, Btn, SectionHeader, StatCard, IRIBar, IRIGauge, Field, fieldStyle, textareaStyle, Toggle, SportBadge, OverwatchBadge, ShockBadge, TabPill } from './UI.jsx'
 import { VERSION, computeIRI, iriBand, impliedProb, detectShock, computeContextualIRI, checkFalsePositive, bayesianUpdate, detectCommunities, fingerprintSyndicate, computeLiquidityStress, analyzePatternOfLife, predictFutureRisk, blindHash, TIER_V, SPORTS_CONFIG } from '../utils/iri.js'
-import { TRIAGE_ITEMS, NETWORK_NODES, NETWORK_EDGES, MOCK_MATCHES, CHRONO_MATCH, FININT_DATA, OVERWATCH_ALERTS, PREDICTIVE_SUBJECTS, DECONFLICT_REGISTRY, OMNIBAR_EXAMPLES } from '../utils/data.js'
+import { TRIAGE_ITEMS, NETWORK_NODES, NETWORK_EDGES, MOCK_MATCHES, CHRONO_MATCH, FININT_DATA, OVERWATCH_ALERTS, PREDICTIVE_SUBJECTS, DECONFLICT_REGISTRY, OMNIBAR_EXAMPLES, INITIAL_APIS } from '../utils/data.js'
 import { loadDismissed, saveDismissed, loadAlerts, saveAlerts, loadApis, saveApis } from '../utils/store.js'
-import { INITIAL_APIS } from '../utils/data.js'
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,5)
 
@@ -716,9 +715,10 @@ IRI Formula: 100 × [0.5 × ${result.residual.toFixed(2)} + 0.5 × ${result.V.to
 // ═══════════════════════════════════════════════════════════════════════════════
 // LIVE MONITOR
 // ═══════════════════════════════════════════════════════════════════════════════
-function LiveMonitor({ liveOdds }) {
+function LiveMonitor({ liveOdds, user }) {
   const [sport, setSport] = useState('tennis')
   const [expanded, setExpanded] = useState(null)
+  const userSports = user?.sports || Object.keys(SPORTS_CONFIG)
   const matches = (MOCK_MATCHES[sport]||MOCK_MATCHES.tennis)
     .map(m=>{const r=computeIRI({favoriteOdds:m.favOdds,underdogOdds:m.dogOdds||3,rankingGap:m.rankingGap||20,tier:m.tier,sport});const shock=detectShock(m.prevIRI||40,r.iri);return{...m,...r,band:iriBand(r.iri),shock}})
     .sort((a,b)=>b.iri-a.iri)
@@ -727,7 +727,7 @@ function LiveMonitor({ liveOdds }) {
     <div>
       <SectionHeader title="📡 Live Monitor" subtitle="Real-time IRI · Multi-sport · Shock detection · Click to expand" actions={liveOdds&&<span style={{ ...badge(S.ok) }}>● Live API</span>}/>
       <div style={{ display:'flex', gap:6, marginBottom:14, flexWrap:'wrap' }}>
-        {Object.entries(SPORTS_CONFIG).map(([k,v])=>(
+        {Object.entries(SPORTS_CONFIG).filter(([k])=>userSports.includes(k)).map(([k,v])=>(
           <button key={k} onClick={()=>setSport(k)} style={{ padding:'5px 11px', borderRadius:6, fontSize:11, cursor:'pointer', background:sport===k?S.mid:'transparent', color:sport===k?S.accent:S.dim, border:`1px solid ${sport===k?S.border:'transparent'}` }}>{v.icon} {v.label.split(' ')[0]}</button>
         ))}
       </div>
