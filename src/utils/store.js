@@ -167,3 +167,54 @@ export const saveDossiers  = (d)      => set(KD.dossiers, d)
 export const addDossier    = (d)      => { const ds=[...loadDossiers(),d]; saveDossiers(ds); return ds }
 export const updateDossier = (id, fn) => { const ds=loadDossiers().map(d=>d.id===id?fn(d):d); saveDossiers(ds); return ds }
 export const deleteDossier = (id)     => { saveDossiers(loadDossiers().filter(d=>d.id!==id)) }
+
+// ── Sandbox Mode ────────────────────────────────────────────────────────────
+const KSB = { sandboxAccounts: P+'sandbox_accounts', sandboxData: P+'sandbox_data', liveMode: P+'live_mode' }
+export const loadSandboxAccounts = ()        => get(KSB.sandboxAccounts, [])
+export const saveSandboxAccounts = (a)       => set(KSB.sandboxAccounts, a)
+export const enableSandbox  = (userId)       => { const a=loadSandboxAccounts(); if(!a.includes(userId))saveSandboxAccounts([...a,userId]) }
+export const disableSandbox = (userId)       => saveSandboxAccounts(loadSandboxAccounts().filter(id=>id!==userId))
+export const isSandboxUser  = (userId)       => loadSandboxAccounts().includes(userId)
+export const loadLiveMode   = ()             => get(KSB.liveMode, false)
+export const saveLiveMode   = (v)            => set(KSB.liveMode, v)
+
+// ── Known Associates ─────────────────────────────────────────────────────────
+const KA = { associates: P+'associates' }
+export const loadAssociates  = ()            => get(KA.associates, [])
+export const saveAssociates  = (a)           => set(KA.associates, a)
+export const addAssociate    = (a)           => { const as=[...loadAssociates(),a]; saveAssociates(as); return as }
+export const updateAssociate = (id, fn)      => { const as=loadAssociates().map(a=>a.id===id?fn(a):a); saveAssociates(as); return as }
+export const deleteAssociate = (id)          => { saveAssociates(loadAssociates().filter(a=>a.id!==id)) }
+
+// ── Sharp Bettors (Sportsbook) ───────────────────────────────────────────────
+const KBT = { bettors: P+'sharp_bettors' }
+export const loadBettors  = ()               => get(KBT.bettors, [])
+export const saveBettors  = (b)              => set(KBT.bettors, b)
+export const addBettor    = (b)              => { const bs=[...loadBettors(),b]; saveBettors(bs); return bs }
+export const updateBettor = (id, fn)         => { const bs=loadBettors().map(b=>b.id===id?fn(b):b); saveBettors(bs); return bs }
+
+// ── Workgroup / Team Board ────────────────────────────────────────────────────
+const KW = { posts: P+'workgroup_posts' }
+export const loadPosts  = ()                 => get(KW.posts, [])
+export const savePosts  = (p)               => set(KW.posts, p)
+export const addPost    = (p)               => { const ps=[...loadPosts(),p]; savePosts(ps); return ps }
+
+// ── Features API Registry ─────────────────────────────────────────────────────
+const KF = { featureApis: P+'feature_apis', sportApis: P+'sport_apis' }
+export const loadFeatureApis  = ()           => get(KF.featureApis, [])
+export const saveFeatureApis  = (a)          => set(KF.featureApis, a)
+export const loadSportApis    = ()           => get(KF.sportApis, {})
+export const saveSportApis    = (a)          => set(KF.sportApis, a)
+
+// ── Data Point Selections ─────────────────────────────────────────────────────
+const KDP = { dataPoints: P+'data_points' }
+export const loadDataPoints   = ()           => get(KDP.dataPoints, { iri:true, odds:true, volume:true, rankings:true, weather:true, injuries:true, social:true, travel:true, financial:true })
+export const saveDataPoints   = (d)          => set(KDP.dataPoints, d)
+
+// ── ROI / Case Cost Tracking ──────────────────────────────────────────────────
+export function getCaseROI(caseId, invoices, timeLogs=[]) {
+  const caseInvoices = invoices.filter(i=>i.caseId===caseId)
+  const billed = caseInvoices.reduce((s,i)=>s+(i.total||0),0)
+  const hours   = timeLogs.reduce((s,t)=>s+(t.hours||0),0)
+  return { billed, hours, roi: billed > 0 ? ((billed / Math.max(hours*150,1))*100).toFixed(0) : 0 }
+}

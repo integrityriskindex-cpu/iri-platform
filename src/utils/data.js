@@ -1,14 +1,33 @@
 // IRI v1.5.1 data.js — Intelligence reference data only. No sample cases.
 
+export const SPORTS_CONFIG = {
+  tennis:            { label:'Tennis (ATP/WTA)',    icon:'🎾' },
+  nfl:               { label:'NFL',                icon:'🏈' },
+  cfb:               { label:'College Football',   icon:'🏈' },
+  cbb:               { label:'College Basketball', icon:'🏀' },
+  baseball:          { label:'Baseball (MLB)',      icon:'⚾' },
+  hockey:            { label:'Hockey (NHL)',        icon:'🏒' },
+  golf_pga:          { label:'Golf — PGA Tour',    icon:'⛳' },
+  golf_liv:          { label:'Golf — LIV',         icon:'⛳' },
+  soccer_epl:        { label:'Soccer — EPL',       icon:'⚽' },
+  soccer_mls:        { label:'Soccer — MLS',       icon:'⚽' },
+  wnba:              { label:'WNBA',               icon:'🏀' },
+  college_volleyball:{ label:'College Volleyball', icon:'🏐' },
+  cricket:           { label:'Cricket (ICC)',       icon:'🏏' },
+  esports:           { label:'Esports',            icon:'🎮' },
+  mma:               { label:'MMA / UFC',          icon:'🥊' },
+  boxing:            { label:'Boxing',             icon:'🥊' },
+}
+
 export const ROLE_TABS = {
-  god:               ['triage','godmode','nexus','chrono','finint','overwatch','predictive','deconflict','cases','informants','trackers','dossiers','messaging','timekeeping','cease','monitor','iri','analytics','alerts','security','help'],
-  main_account:      ['triage','nexus','chrono','finint','overwatch','predictive','deconflict','cases','informants','trackers','dossiers','messaging','timekeeping','cease','monitor','iri','analytics','alerts','security','help'],
-  supervisor:        ['triage','nexus','chrono','finint','overwatch','cases','informants','trackers','dossiers','messaging','timekeeping','cease','monitor','iri','analytics','alerts','help'],
-  special_agent:     ['triage','nexus','overwatch','cases','informants','trackers','messaging','monitor','iri','alerts','help'],
-  regulator:         ['triage','nexus','overwatch','deconflict','cases','dossiers','monitor','analytics','alerts','help'],
-  integrity_officer: ['triage','nexus','finint','overwatch','cases','informants','trackers','dossiers','messaging','monitor','iri','alerts','help'],
-  governance:        ['triage','overwatch','cases','dossiers','monitor','analytics','alerts','help'],
-  sportsbook:        ['triage','overwatch','finint','monitor','alerts','help'],
+  god:               ['triage','godmode','nexus','chrono','finint','overwatch','predictive','deconflict','cases','informants','trackers','roster','associates','dossiers','messaging','timekeeping','cease','workgroup','monitor','iri','api','analytics','alerts','advanced','security','sandbox','help'],
+  main_account:      ['triage','nexus','chrono','finint','overwatch','predictive','deconflict','cases','informants','trackers','roster','associates','dossiers','messaging','timekeeping','cease','workgroup','monitor','iri','api','analytics','alerts','advanced','security','sandbox','help'],
+  supervisor:        ['triage','nexus','chrono','finint','overwatch','cases','informants','trackers','roster','associates','dossiers','messaging','timekeeping','cease','workgroup','monitor','iri','analytics','alerts','help'],
+  special_agent:     ['triage','nexus','overwatch','cases','informants','trackers','roster','associates','messaging','workgroup','monitor','iri','alerts','help'],
+  regulator:         ['triage','nexus','overwatch','deconflict','cases','dossiers','roster','monitor','analytics','alerts','help'],
+  integrity_officer: ['triage','nexus','finint','overwatch','cases','informants','trackers','roster','associates','dossiers','messaging','monitor','iri','alerts','help'],
+  governance:        ['triage','overwatch','cases','dossiers','roster','monitor','analytics','alerts','help'],
+  sportsbook:        ['triage','overwatch','finint','monitor','sharp','alerts','help'],
 }
 
 // ── Sports config ─────────────────────────────────────────────────────────────

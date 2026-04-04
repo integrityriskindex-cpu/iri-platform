@@ -372,9 +372,25 @@ function FinintLayer() {
 // ═══════════════════════════════════════════════════════════════════════════════
 // OVERWATCH ENGINE — Multi-tier pre-match alerts
 // ═══════════════════════════════════════════════════════════════════════════════
-function OverwatchEngine() {
+function OverwatchEngine({ onCreateCase }) {
   const [alerts, setAlerts] = useState(OVERWATCH_ALERTS)
+  const [created, setCreated] = useState({})
   const levelColor = l=>({ Black:'#a855f7', Red:S.danger, Yellow:S.accent }[l]||S.dim)
+
+  const autoCase = (a) => {
+    if (onCreateCase) {
+      onCreateCase({
+        title:       `[OVERWATCH ${a.level?.toUpperCase()}] ${a.match} — ${a.event}`,
+        severity:    a.level==='Black'?'Critical':a.level==='Red'?'High':'Medium',
+        sport:       a.sport,
+        jurisdiction:'',
+        assignee:    '',
+        supervisor:  '',
+        description: `Auto-created from Overwatch ${a.level} alert.\nTrigger: ${a.trigger}\nIRI Score: ${a.iriScore}\nHours to start: ${a.hoursToStart}h\nAlert ID: ${a.id}`,
+      })
+    }
+    setCreated(c=>({...c,[a.id]:true}))
+  }
 
   return (
     <div>
@@ -419,7 +435,7 @@ function OverwatchEngine() {
                 <div style={{ color:S.dim, fontSize:10 }}>IRI</div>
                 <div style={{ color:iriBand(a.iriScore).color, fontSize:32, fontWeight:900 }}>{a.iriScore}</div>
               </div>
-              <Btn size="sm" color={levelColor(a.level)}><Gavel size={10}/>Auto Case</Btn>
+              <Btn size="sm" color={created[a.id]?S.ok:levelColor(a.level)} onClick={()=>autoCase(a)} disabled={created[a.id]}>{created[a.id]?'✓ Case Created':'Auto Case'}</Btn>
               <Btn size="sm" color={S.info} variant="outline"><Download size={10}/>Brief</Btn>
             </div>
           </div>
