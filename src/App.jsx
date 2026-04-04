@@ -3,11 +3,13 @@ import { LineChart, Line, AreaChart, Area, ComposedChart, Bar, XAxis, YAxis, Car
 import { LogOut, Search, Plus, Send, Download, Flag, Gavel, CheckCircle2, FileText, Eye, Link, Clock, Paperclip, RefreshCw, Trash2, RotateCcw, Users, Settings, Lock, Shield, Database } from 'lucide-react'
 
 import { authenticate, loadSession, clearSession, getAuthLog, loadAllUsers, createUser, updateUser, setPassword, freezeUser, unfreezeUser, deleteUser, sha256, ALL_ROLES, ALL_SPORTS } from './utils/auth.js'
-import { loadCases, saveCases, addCase, updateCase as storeUpdateCase, archiveCase, loadArchivedCases, restoreCase, purgeArchivedCase, loadClients, saveClients, addClient, updateClient, deleteClient, loadInvoices, saveInvoices, addInvoice, updateInvoice, loadMessages, saveMessages, loadAlerts, saveAlerts, loadApis, saveApis, loadDismissed, saveDismissed, loadSettings, saveSettings, loadRetention, saveRetention, exportBackup, importBackup, clearAllAppData } from './utils/store.js'
+import { loadCases, saveCases, addCase, updateCase as storeUpdateCase, archiveCase, loadArchivedCases, restoreCase, purgeArchivedCase, loadClients, saveClients, addClient, updateClient, deleteClient, loadInvoices, saveInvoices, addInvoice, updateInvoice, loadMessages, saveMessages, loadAlerts, saveAlerts, loadApis, saveApis, loadDismissed, saveDismissed, loadSettings, saveSettings, loadRetention, saveRetention, exportBackup, importBackup, clearAllAppData, setInformantPin } from './utils/store.js'
 import { exportCasePDF, exportCaseDOCX, exportCaseExcel, exportInvoicePDF, exportInvoiceDOCX, exportInvoiceExcel, exportAllCasesExcel, exportAllInvoicesExcel, exportRevenueReportPDF } from './utils/export.js'
 import { VERSION, computeIRI, iriBand, impliedProb, detectShock, computeContextualIRI, checkFalsePositive, bayesianUpdate, detectCommunities, fingerprintSyndicate, computeLiquidityStress, analyzePatternOfLife, predictFutureRisk, blindHash, TIER_V, SPORTS_CONFIG, rosettaNormalize } from './utils/iri.js'
 import { ROLE_TABS, TRIAGE_ITEMS, NETWORK_NODES, NETWORK_EDGES, MOCK_MATCHES, CHRONO_MATCH, FININT_DATA, OVERWATCH_ALERTS, PREDICTIVE_SUBJECTS, DECONFLICT_REGISTRY, INITIAL_APIS, TREND_DATA, OMNIBAR_EXAMPLES } from './utils/data.js'
 import { S, card, cardSm, badge, Btn, SectionHeader, StatCard, IRIBar, IRIGauge, TabPill, Field, fieldStyle, textareaStyle, Toggle, SportBadge, OverwatchBadge, ShockBadge, TimelineEntry, MessageBubble, Modal, ExportMenu } from './components/UI.jsx'
+import { NexusGraph, ChronoEngine, FinintLayer, OverwatchEngine, PredictiveModeling, DeconflictionEngine, IRICalculator, LiveMonitor } from './components/Intelligence.jsx'
+import { InformantModule, AINarrative, BankStatementIngestion, KeyDiscovery, TrackerSystem, DossierModule, CeaseAndDesist } from './components/Investigation.jsx'
 
 const API   = (typeof window !== 'undefined' && window.APP_CONFIG?.API_BASE_URL || import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/,'')
 const ts    = () => new Date().toISOString().slice(0,16).replace('T',' ')
@@ -111,6 +113,13 @@ function GodMode({ user, onImpersonate, onStopImpersonate, isImpersonating, impe
     else setMsg(r.error)
   }
 
+  const handleSetInformantPin = async (u) => {
+    const pin = prompt(`Set Informant Module PIN for ${u.username} (4-8 digits):`)
+    if (!pin || pin.length < 4) return
+    setInformantPin(u.id, pin)
+    setMsg(`Informant PIN set for ${u.username}`)
+  }
+
   const handleFreeze = async (u) => {
     if (u.frozen) await unfreezeUser(u.id); else await freezeUser(u.id)
     refresh()
@@ -140,22 +149,33 @@ function GodMode({ user, onImpersonate, onStopImpersonate, isImpersonating, impe
   return (
     <div>
       <SectionHeader title="👁️ God Mode — Integrity Chief Console" subtitle={`IRI v${VERSION} · Full system control · Operator: ${user.displayName}`}/>
-      {isImpersonating && (
-        <div style={{ ...card,marginBottom:16,borderColor:'#a855f7',background:'#1a0a2e' }}>
-          <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center' }}>
-            <div style={{ color:'#a855f7',fontSize:13,fontWeight:700 }}>👁️ Viewing as: {ALL_ROLES[impersonatedRole]?.icon} {ALL_ROLES[impersonatedRole]?.label}</div>
-            <Btn size="sm" color={S.danger} onClick={onStopImpersonate}>✕ Exit Role View</Btn>
+
+      {/* ── Role View Switcher — persistent dropdown ── */}
+      <div style={{ ...card,marginBottom:16,borderColor:'#a855f744',background:'#0d0014',display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:12 }}>
+        <div>
+          <div style={{ color:'#a855f7',fontSize:12,fontWeight:700,marginBottom:2 }}>👁️ ROLE VIEW SWITCHER</div>
+          <div style={{ color:S.dim,fontSize:11 }}>See the platform exactly as any role — tabs, permissions, and data scope all reflect that user's access</div>
+        </div>
+        <div style={{ display:'flex',gap:8,alignItems:'center',flexWrap:'wrap' }}>
+          <select
+            value={impersonatedRole||''}
+            onChange={e=>{ const v=e.target.value; if(v)onImpersonate(v); else onStopImpersonate() }}
+            style={{ ...fieldStyle,minWidth:220,background:'#1a0a2e',borderColor:'#a855f7',color:impersonatedRole?ALL_ROLES[impersonatedRole]?.color:S.dim,fontWeight:700,fontSize:13 }}>
+            <option value="">— View as God Mode (default) —</option>
+            {Object.entries(ALL_ROLES).filter(([k])=>k!=='god').map(([k,v])=>(
+              <option key={k} value={k}>{v.icon} {v.label}</option>
+            ))}
+          </select>
+          {impersonatedRole && (
+            <Btn size="sm" color={S.danger} onClick={onStopImpersonate}>✕ Exit</Btn>
+          )}
+        </div>
+        {impersonatedRole && (
+          <div style={{ width:'100%',background:'#a855f711',borderRadius:6,padding:'6px 10px',border:`1px solid #a855f733` }}>
+            <span style={{ color:'#a855f7',fontSize:11,fontWeight:700 }}>Now viewing as: {ALL_ROLES[impersonatedRole]?.icon} {ALL_ROLES[impersonatedRole]?.label}</span>
+            <span style={{ color:S.dim,fontSize:11 }}> — navigate to any tab to see that role's view. Return here to switch roles or exit.</span>
           </div>
-        </div>
-      )}
-      <div style={{ ...card,marginBottom:16,borderColor:S.god+'44',background:'#1a0a2e' }}>
-        <div style={{ color:S.god,fontSize:13,fontWeight:700,marginBottom:4 }}>⚠ RESTRICTED — INTEGRITY CHIEF ONLY</div>
-        <div style={{ display:'flex',gap:8,flexWrap:'wrap',marginTop:8 }}>
-          <div style={{ color:S.dim,fontSize:12,marginRight:8,alignSelf:'center' }}>View platform as role:</div>
-          {Object.entries(ALL_ROLES).filter(([k])=>k!=='god').map(([k,v])=>(
-            <Btn key={k} size="sm" color={v.color} variant="outline" onClick={()=>onImpersonate(k)}>{v.icon} {v.label.split(' ')[0]}</Btn>
-          ))}
-        </div>
+        )}
       </div>
 
       <div style={{ display:'flex',gap:6,marginBottom:18,flexWrap:'wrap' }}>
@@ -486,7 +506,7 @@ function CaseManagement({ user, settings }) {
 
   const filtered = cases.filter(c=>filterStatus==='all'||c.status===filterStatus).filter(c=>!searchQ||c.title?.toLowerCase().includes(searchQ.toLowerCase())||c.id?.includes(searchQ))
 
-  const CASE_TABS = ['overview','notes','timeline','files','phonelog','stakeout','leads','infractions','time']
+  const CASE_TABS = ['overview','notes','timeline','files','phonelog','stakeout','leads','infractions','time','bank','narrative','discovery']
 
   // ── Case list ──
   if (!activeCase) return (
@@ -593,7 +613,7 @@ function CaseManagement({ user, settings }) {
       <div style={{ display:'flex',gap:4,overflowX:'auto',marginBottom:16,borderBottom:`1px solid ${S.border}`,paddingBottom:8 }}>
         {CASE_TABS.map(t=>(
           <button key={t} onClick={()=>setTab(t)} style={{ padding:'6px 13px',borderRadius:6,fontSize:12,cursor:'pointer',background:activeTab===t?S.mid:'transparent',color:activeTab===t?S.accent:S.dim,border:`1px solid ${activeTab===t?S.border:'transparent'}`,fontWeight:activeTab===t?700:400,whiteSpace:'nowrap' }}>
-            {{overview:'📋 Overview',notes:'📝 Notes',timeline:'⏱️ Timeline',files:'📎 Files',phonelog:'📞 Phone',stakeout:'👁️ Stakeout',leads:'🔗 Leads',infractions:'📜 Infractions',time:'⏰ Time'}[t]}
+            {{overview:'📋 Overview',notes:'📝 Notes',timeline:'⏱️ Timeline',files:'📎 Files',phonelog:'📞 Phone',stakeout:'👁️ Stakeout',leads:'🔗 Leads',infractions:'📜 Infractions',time:'⏰ Time',bank:'💳 Bank Statement',narrative:'🤖 AI Narrative',discovery:'📋 Key Discovery'}[t]}
             {t==='notes'&&(c.notes?.filter(n=>!n.signedOff&&!n.internal).length||0)>0&&<span style={{ ...badge(S.warn),marginLeft:4,fontSize:9 }}>{c.notes.filter(n=>!n.signedOff&&!n.internal).length}</span>}
           </button>
         ))}
@@ -791,6 +811,21 @@ function CaseManagement({ user, settings }) {
             </div>
           </Modal>
         </div>
+      )}
+
+      {/* BANK STATEMENT */}
+      {activeTab==='bank' && (
+        <BankStatementIngestion c={c} user={user} onSave={(bankData)=>update(c.id, x=>({...x, bankStatements:[...(x.bankStatements||[]),{...bankData,ts:ts(),addedBy:user.username}], timeline:[...x.timeline,{id:`TL-${uid()}`,ts:ts(),user:user.username,type:'Bank Statement Added',icon:'💳',color:S.accent,text:`Bank statement parsed: ${bankData.transactions?.length||0} transactions, ${bankData.suspiciousPatterns?.length||0} suspicious patterns`}]}))}/>
+      )}
+
+      {/* AI NARRATIVE */}
+      {activeTab==='narrative' && (
+        <AINarrative c={c} user={user}/>
+      )}
+
+      {/* KEY DISCOVERY */}
+      {activeTab==='discovery' && (
+        <KeyDiscovery c={c} user={user}/>
       )}
 
       {/* TIME LOG */}
@@ -1387,32 +1422,49 @@ function Help({ user }) {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TAB REGISTRY + DASHBOARD
+//
+// ⚠ PERMANENT MODULES — DO NOT REMOVE OR SET component:null FOR THESE:
+//   nexus      → NexusGraph        (Louvain community detection)
+//   chrono     → ChronoEngine      (match timeline replay)
+//   finint     → FinintLayer       (betting flow / syndicate fingerprinting)
+//   overwatch  → OverwatchEngine   (pre-match Black/Red/Yellow alerts)
+//   predictive → PredictiveModeling (future risk forecasting)
+//   deconflict → DeconflictionEngine (blind hash multi-agency matching)
+//
+// These were originally built in v1.5.0 and must remain live in all future
+// versions. They are imported from src/components/Intelligence.jsx.
+// If Intelligence.jsx is missing, the build will fail at import time — which
+// is intentional. Never replace these with PlaceholderModule.
 // ═══════════════════════════════════════════════════════════════════════════════
-const ALL_TABS = [
-  { id:'triage',     label:'🌅 Triage',         component:TriageDashboard,  needsNav:true },
-  { id:'godmode',    label:'👁️ God Mode',        component:null }, // special
-  { id:'nexus',      label:'🕸️ Nexus Graph',    component:null }, // from v1.5.0
-  { id:'cases',      label:'🔨 Cases',           component:CaseManagement    },
-  { id:'messaging',  label:'💬 Messaging',       component:SecureMessaging   },
-  { id:'timekeeping',label:'💼 Billing',         component:Billing           },
-  { id:'monitor',    label:'📡 Live Monitor',    component:LiveMonitor       },
-  { id:'iri',        label:'⚡ IRI v2',          component:IRICalculator     },
-  { id:'analytics',  label:'📊 Analytics',       component:Analytics         },
-  { id:'alerts',     label:'🔔 Alerts',          component:AlertsPanel       },
-  { id:'security',   label:'🔒 Security',        component:SecurityStatus    },
-  { id:'help',       label:'❓ Help',             component:Help              },
-  { id:'overwatch',  label:'🚨 Overwatch',       component:null },
-  { id:'finint',     label:'💰 FININT',          component:null },
-  { id:'predictive', label:'🔮 Predictive',      component:null },
-  { id:'nexus',      label:'🕸️ Nexus',           component:null },
-  { id:'deconflict', label:'🔐 Deconflict',      component:null },
-  { id:'api',        label:'🔌 API Meter',       component:null },
-  { id:'chrono',     label:'⏱ Chrono',          component:null },
-]
 
-function PlaceholderModule({ label }) {
-  return <div style={{ ...card,textAlign:'center',padding:48 }}><div style={{ fontSize:32,marginBottom:12 }}>{label.split(' ')[0]}</div><div style={{ color:S.text,fontSize:16,fontWeight:700,marginBottom:8 }}>{label} — v1.5.0 Module</div><div style={{ color:S.dim,fontSize:12 }}>This module was built in v1.5.0. Deploy from iri-platform-v1.5.0.zip to access Nexus Graph 2.0, Chrono Engine, FININT, Overwatch, Predictive Modeling, and Deconfliction Engine.</div></div>
+// Runtime guard: crash loudly in dev if any core module is missing
+if (typeof NexusGraph==='undefined'||typeof ChronoEngine==='undefined'||typeof FinintLayer==='undefined'||typeof OverwatchEngine==='undefined'||typeof PredictiveModeling==='undefined'||typeof DeconflictionEngine==='undefined') {
+  throw new Error('[IRI v'+VERSION+'] FATAL: One or more permanent intelligence modules missing. Check src/components/Intelligence.jsx imports.')
 }
+
+const ALL_TABS = [
+  { id:'triage',      label:'🌅 Triage',          component:TriageDashboard,       needsNav:true },
+  { id:'godmode',     label:'👁️ God Mode',         component:null },               // special-cased in Dashboard
+  { id:'nexus',       label:'🕸️ Nexus Graph',     component:NexusGraph            },
+  { id:'chrono',      label:'⏱ Chrono Engine',    component:ChronoEngine          },
+  { id:'finint',      label:'💰 FININT',           component:FinintLayer           },
+  { id:'overwatch',   label:'🚨 Overwatch',        component:OverwatchEngine       },
+  { id:'predictive',  label:'🔮 Predictive',       component:PredictiveModeling    },
+  { id:'deconflict',  label:'🔐 Deconflict',       component:DeconflictionEngine   },
+  { id:'cases',       label:'🔨 Cases',            component:CaseManagement        },
+  { id:'informants',  label:'🔐 Informants',       component:InformantModule       },
+  { id:'trackers',    label:'📡 Trackers',         component:TrackerSystem         },
+  { id:'dossiers',    label:'📁 Dossiers',         component:DossierModule         },
+  { id:'messaging',   label:'💬 Messaging',        component:SecureMessaging       },
+  { id:'timekeeping', label:'💼 Billing',          component:Billing               },
+  { id:'cease',       label:'⚖️ Cease & Desist',   component:CeaseAndDesist        },
+  { id:'monitor',     label:'📡 Live Monitor',     component:LiveMonitor           },
+  { id:'iri',         label:'⚡ IRI v2',           component:IRICalculator         },
+  { id:'analytics',   label:'📊 Analytics',        component:Analytics             },
+  { id:'alerts',      label:'🔔 Alerts',           component:AlertsPanel           },
+  { id:'security',    label:'🔒 Security',         component:SecurityStatus        },
+  { id:'help',        label:'❓ Help',              component:Help                  },
+]
 
 function Dashboard({ user: rawUser, onLogout }) {
   const [tab,             setTab]             = useState('triage')
@@ -1445,6 +1497,15 @@ function Dashboard({ user: rawUser, onLogout }) {
           <Search size={12}/> OmniBar…<kbd style={{ marginLeft:'auto',fontSize:10,background:S.border,padding:'1px 5px',borderRadius:3 }}>⌘K</kbd>
         </button>
         <div style={{ display:'flex',alignItems:'center',gap:8 }}>
+          {impersonatedRole && (
+            <div style={{ display:'flex',alignItems:'center',gap:6,background:'#1a0a2e',border:`1px solid #a855f744`,borderRadius:8,padding:'4px 10px' }}>
+              <span style={{ color:'#a855f7',fontSize:11,fontWeight:700 }}>👁️ {ALL_ROLES[impersonatedRole]?.icon} {ALL_ROLES[impersonatedRole]?.label.split(' ')[0]}</span>
+              <select value={impersonatedRole||''} onChange={e=>{ const v=e.target.value; if(v)setImpersonated(v); else setImpersonated(null) }} style={{ background:'transparent',border:'none',color:'#a855f7',fontSize:11,cursor:'pointer',outline:'none' }}>
+                <option value="">— Exit Role View —</option>
+                {Object.entries(ALL_ROLES).filter(([k])=>k!=='god').map(([k,v])=><option key={k} value={k}>{v.icon} {v.label}</option>)}
+              </select>
+            </div>
+          )}
           <span style={{ ...badge(role?.color||S.accent) }}>{role?.icon} {role?.label}</span>
           <span style={{ color:S.text,fontSize:12 }}>{rawUser.displayName||rawUser.username}</span>
           <button onClick={onLogout} style={{ background:'transparent',border:`1px solid ${S.border}`,borderRadius:6,padding:'5px 10px',color:S.dim,fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',gap:4 }}><LogOut size={12}/> Out</button>
@@ -1460,7 +1521,7 @@ function Dashboard({ user: rawUser, onLogout }) {
           ? <GodMode user={rawUser} onImpersonate={setImpersonated} onStopImpersonate={()=>setImpersonated(null)} isImpersonating={!!impersonatedRole} impersonatedRole={impersonatedRole}/>
           : ActiveComp
             ? <ActiveComp {...tabProps}/>
-            : <PlaceholderModule label={visibleTabs.find(t=>t.id===tab)?.label||tab}/>
+            : <div style={{ ...card,textAlign:'center',padding:48 }}><div style={{ color:S.dim,fontSize:13 }}>Tab not found — check your role permissions.</div></div>
         }
       </div>
       <div style={{ borderTop:`1px solid ${S.border}`,padding:'10px 20px',display:'flex',justifyContent:'space-between',color:S.dim,fontSize:10,flexWrap:'wrap',gap:4,fontFamily:"'IBM Plex Mono',monospace" }}>

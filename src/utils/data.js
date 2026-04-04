@@ -1,14 +1,14 @@
 // IRI v1.5.1 data.js — Intelligence reference data only. No sample cases.
 
 export const ROLE_TABS = {
-  god:               ['triage','godmode','nexus','chrono','finint','overwatch','predictive','deconflict','cases','messaging','timekeeping','monitor','iri','api','analytics','alerts','security','help'],
-  main_account:      ['triage','nexus','chrono','finint','overwatch','predictive','deconflict','cases','messaging','timekeeping','monitor','iri','api','analytics','alerts','security','help'],
-  supervisor:        ['triage','nexus','chrono','finint','overwatch','cases','messaging','monitor','iri','analytics','alerts','help'],
-  special_agent:     ['triage','nexus','overwatch','cases','messaging','monitor','iri','alerts','help'],
-  regulator:         ['triage','nexus','overwatch','deconflict','cases','monitor','api','analytics','alerts','help'],
-  integrity_officer: ['triage','nexus','finint','overwatch','cases','monitor','iri','alerts','help'],
-  governance:        ['triage','overwatch','cases','monitor','analytics','alerts','help'],
-  sportsbook:        ['triage','overwatch','finint','monitor','api','alerts','help'],
+  god:               ['triage','godmode','nexus','chrono','finint','overwatch','predictive','deconflict','cases','informants','trackers','dossiers','messaging','timekeeping','cease','monitor','iri','analytics','alerts','security','help'],
+  main_account:      ['triage','nexus','chrono','finint','overwatch','predictive','deconflict','cases','informants','trackers','dossiers','messaging','timekeeping','cease','monitor','iri','analytics','alerts','security','help'],
+  supervisor:        ['triage','nexus','chrono','finint','overwatch','cases','informants','trackers','dossiers','messaging','timekeeping','cease','monitor','iri','analytics','alerts','help'],
+  special_agent:     ['triage','nexus','overwatch','cases','informants','trackers','messaging','monitor','iri','alerts','help'],
+  regulator:         ['triage','nexus','overwatch','deconflict','cases','dossiers','monitor','analytics','alerts','help'],
+  integrity_officer: ['triage','nexus','finint','overwatch','cases','informants','trackers','dossiers','messaging','monitor','iri','alerts','help'],
+  governance:        ['triage','overwatch','cases','dossiers','monitor','analytics','alerts','help'],
+  sportsbook:        ['triage','overwatch','finint','monitor','alerts','help'],
 }
 
 // ── Sports config ─────────────────────────────────────────────────────────────

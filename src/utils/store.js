@@ -130,3 +130,40 @@ export function importBackup(jsonStr) {
 export function clearAllAppData() {
   Object.values(K).forEach(k => { try { localStorage.removeItem(k) } catch {} })
 }
+
+// ── Informants ─────────────────────────────────────────────────────────────
+const KI = {
+  informants: P+'informants',
+  informantPins: P+'inf_pins',
+}
+export const loadInformants   = ()       => get(KI.informants, [])
+export const saveInformants   = (i)      => set(KI.informants, i)
+export const addInformant     = (inf)    => { const is=[...loadInformants(),inf]; saveInformants(is); return is }
+export const updateInformant  = (id,fn)  => { const is=loadInformants().map(i=>i.id===id?fn(i):i); saveInformants(is); return is }
+
+// Informant PINs stored separately (only God/Main can set)
+export const loadInformantPins = ()      => get(KI.informantPins, {})
+export const setInformantPin  = (userId, pin) => {
+  const pins = loadInformantPins()
+  set(KI.informantPins, { ...pins, [userId]: pin })
+}
+export const verifyInformantPin = (userId, pin) => {
+  const pins = loadInformantPins()
+  return pins[userId] === pin
+}
+
+// ── Trackers ────────────────────────────────────────────────────────────────
+const KT = { trackers: P+'trackers' }
+export const loadTrackers  = ()       => get(KT.trackers, [])
+export const saveTrackers  = (t)      => set(KT.trackers, t)
+export const addTracker    = (t)      => { const ts=[...loadTrackers(),t]; saveTrackers(ts); return ts }
+export const updateTracker = (id, fn) => { const ts=loadTrackers().map(t=>t.id===id?fn(t):t); saveTrackers(ts); return ts }
+export const deleteTracker = (id)     => { saveTrackers(loadTrackers().filter(t=>t.id!==id)) }
+
+// ── Dossiers ────────────────────────────────────────────────────────────────
+const KD = { dossiers: P+'dossiers' }
+export const loadDossiers  = ()       => get(KD.dossiers, [])
+export const saveDossiers  = (d)      => set(KD.dossiers, d)
+export const addDossier    = (d)      => { const ds=[...loadDossiers(),d]; saveDossiers(ds); return ds }
+export const updateDossier = (id, fn) => { const ds=loadDossiers().map(d=>d.id===id?fn(d):d); saveDossiers(ds); return ds }
+export const deleteDossier = (id)     => { saveDossiers(loadDossiers().filter(d=>d.id!==id)) }

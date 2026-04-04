@@ -4,7 +4,7 @@
 // Extensions: Bayesian updating · Shock detection · Cluster exposure · FININT
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const VERSION = '1.5.1'
+export const VERSION = '1.5.2'
 
 // ── Tier vulnerability scores ─────────────────────────────────────────────────
 export const TIER_V = {
