@@ -29,17 +29,6 @@ export const ROLE_TABS = {
   governance:        ['triage','overwatch','cases','dossiers','roster','monitor','analytics','alerts','help'],
   sportsbook:        ['triage','overwatch','finint','monitor','sharp','alerts','help'],
 }
-
-// ── Sports config ─────────────────────────────────────────────────────────────
-export const SPORTS_CONFIG = {
-  tennis:   { label:'Tennis (ATP/WTA)',   icon:'🎾' }, nfl:{ label:'NFL', icon:'🏈' },
-  cfb:      { label:'College Football',   icon:'🏈' }, cbb:{ label:'College Basketball',icon:'🏀' },
-  baseball: { label:'Baseball (MLB)',     icon:'⚾' }, hockey:{ label:'Hockey (NHL)',icon:'🏒' },
-  golf_pga: { label:'Golf — PGA Tour',   icon:'⛳' }, golf_liv:{ label:'Golf — LIV',icon:'⛳' },
-  soccer_epl:{ label:'Soccer — EPL',     icon:'⚽' }, soccer_mls:{ label:'Soccer — MLS',icon:'⚽' },
-  wnba:     { label:'WNBA',              icon:'🏀' }, college_volleyball:{ label:'College Volleyball',icon:'🏐' },
-}
-
 // ── Demo triage items (intelligence data, not cases) ──────────────────────────
 export const TRIAGE_ITEMS = [
   { id:'TR-001', severity:'Critical', type:'Betting Spike',     sport:'tennis', entity:'Market Alert — ITF Tier', detail:'IRI engine detected 210% above-baseline volume. Three coordinated EU bookmakers. Benford χ²=28.4.', ts:'03:42 AM', iriPrev:22, iriCurr:94, action:'Open Case' },
