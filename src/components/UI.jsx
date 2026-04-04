@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { iriBand } from '../utils/iri.js'
 
 export const S = {
@@ -196,6 +197,30 @@ export function Modal({ open, onClose, title, children, width=680 }) {
         </div>
         <div style={{ padding:20 }}>{children}</div>
       </div>
+    </div>
+  )
+}
+
+// Export format picker
+export function ExportMenu({ onExport, label='Export', color }) {
+  const [open, setOpen] = useState(false)
+  const C = color || S.accent
+  return (
+    <div style={{ position:'relative', display:'inline-block' }}>
+      <button onClick={()=>setOpen(o=>!o)} style={{ display:'inline-flex', alignItems:'center', gap:5, background:C+'22', color:C, border:`1px solid ${C}44`, borderRadius:6, padding:'7px 14px', fontSize:13, fontWeight:700, cursor:'pointer' }}>
+        📤 {label} ▾
+      </button>
+      {open && (
+        <div style={{ position:'absolute', top:'100%', right:0, marginTop:4, background:S.card, border:`1px solid ${S.border}`, borderRadius:8, zIndex:200, minWidth:160, boxShadow:'0 8px 24px #0008' }}>
+          {[['📄 PDF','pdf'],['📝 Word (.doc)','docx'],['📊 Excel (.xlsx)','excel']].map(([l,f])=>(
+            <button key={f} onClick={()=>{setOpen(false);onExport(f)}} style={{ display:'block', width:'100%', textAlign:'left', padding:'10px 16px', background:'transparent', border:'none', color:S.text, fontSize:13, cursor:'pointer' }}
+              onMouseEnter={e=>e.target.style.background=S.mid}
+              onMouseLeave={e=>e.target.style.background='transparent'}>
+              {l}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
