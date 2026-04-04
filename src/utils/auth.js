@@ -21,7 +21,7 @@ const USER_DB = [
   {
     username:     'IntegrityChief',
     // Password: IntegrityConf24!
-    passwordHash: '7c4a8d09ca3762af61e59520943dc26494f8941b', // placeholder — SHA-1, replace with SHA-256
+    passwordHash: '49b3fd95830a3d04f3185c7b44c4ee7ccef40c293de9e09b73685f5abcecb19d', // placeholder — SHA-1, replace with SHA-256
     role:         'god',
     displayName:  'System Administrator',
     mfa:          false,
